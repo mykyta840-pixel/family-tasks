@@ -1,0 +1,113 @@
+PROJECT_CONTEXT.txt  (обновляется после каждого этапа)
+
+ЧТО ЗА ПРИЛОЖЕНИЕ
+Семейное PWA-приложение. Родитель создаёт задания, ребёнок отмечает «Выполнено», родитель
+подтверждает, ребёнку начисляются баллы, баллы обмениваются на награды. Один код на всех телефонах.
+Оба родителя равноправны (нет «главного админа»). Пользователь не программист: объяснять просто.
+Язык интерфейса: русский.
+
+СТЕК (решено, не менять без причины)
+React 18 + TypeScript + Vite, Tailwind CSS 3, Framer Motion, react-router-dom 6, lucide-react,
+vite-plugin-pwa, Supabase (auth, Postgres, RLS, realtime, storage). Хостинг: Netlify из GitHub (netlify.toml в проекте, бесплатно).
+
+РЕШЕНИЯ
+- Вход ребёнка: вариант А, своя почта и пароль, присоединение по коду приглашения.
+  (Вариант Б, вход по PIN, возможен позже.)
+- Баллы: только журнал points_transactions, баланс = сумма. Операции через SQL-функции (атомарно,
+  идемпотентно). Ребёнок не пишет в баллы/награды/роли напрямую.
+- Уведомления MVP: внутри приложения через realtime. Push при закрытом приложении: позже.
+- Offline: не offline-first. Баннер «нет связи», блокировка кнопок, переподключение и перезагрузка данных.
+- Дизайн: фон paper #F5F6FB, основной brand #4F46E5, баллы star #F5A524, подтверждено ok #1FA971,
+  на проверке review #8B5CF6, ошибка warn #E5484D. Шрифты: Unbounded (заголовки/числа), Onest (текст).
+
+СДЕЛАНО (Этапы 1-13 написаны, код не собирался)
+Этап 1: план и стек согласованы.
+Этап 2: создана основа проекта в папке family-tasks/.
+Этап 3 (готов код, НЕ проверен сборкой): src/auth/AuthProvider.tsx (сессия, профиль, семья, роль, перезагрузка при
+возврате сети), pages/Auth.tsx (регистрация/вход), pages/Onboarding.tsx (создать семью / ввести код),
+pages/FamilyHome.tsx (временный экран: участники realtime, генерация кодов приглашения), components/Avatar.tsx,
+lib/errors.ts (русские тексты ошибок), lib/types.ts. App.tsx: Gate = нет сессии -> Auth, нет семьи -> Onboarding, иначе FamilyHome.
+Этап 4: supabase/migrations/001_init.sql написан (все таблицы, RLS, функции, realtime, bucket avatars). НЕ запускался
+против реальной Postgres (в среде Claude её нет), пользователь должен вставить его в Supabase SQL Editor и сообщить результат.
+SQL применён пользователем в Supabase вручную через SQL Editor пятью частями (supabase/manual/01..05_*.sql, одинаковы с
+migrations/001_init.sql). Все 5 частей прошли успешно. ВАЖНО: в окне Supabase «потенциальная проблема RLS» для частей с
+функциями выбирать «Запуск без RLS» (иначе Supabase портит текст). Копировать SQL надо кнопкой «Копия» у блока кода в чате.
+Этап 5-6 (код написан, синтаксис проверен, сборка НЕ проверена): src/lib/tasks.ts (типы, статусы, фильтры, даты),
+src/lib/actions.ts (callRpc), src/hooks/useOnline.ts, src/data/FamilyData.tsx (общие данные: задания, дети, балансы,
+realtime на tasks/points_transactions/family_members, перезагрузка при возврате сети), components/TaskCard, ReviewActions
+(подтвердить/отклонить с причиной, защита от двойного нажатия), BottomNav, Shell (баннер «нет связи»),
+pages/ParentDashboard, TaskList (фильтры Сегодня/Предстоящие/На проверке/Выполненные/Просроченные), TaskForm (создать/
+изменить/удалить задание), ChildHome (баланс, кнопка «Выполнено», анимация +баллы). App.tsx: маршруты /, /family, /tasks,
+/tasks/new, /tasks/:id (последние три только для родителя).
+Этап 7 (баллы): готов. pages/History.tsx (журнал +/− баллов, у родителя фильтр по ребёнку), маршрут /history.
+Этап 8 (награды, код написан, сборка не проверена): lib/rewards.ts, pages/ChildShop.tsx (магазин, «Не хватает N ⭐» /
+«Получить награду» / «Запрос отправлен», мои запросы; учитываются ожидающие запросы), pages/ParentRewards.tsx (создание/
+правка/удаление наград через Sheet, значки, цена, скрыть от детей, запросы на выдачу), components/RedemptionActions.tsx
+(Выдать = approve_redemption списывает баллы; Отказать), components/Sheet.tsx. FamilyData теперь грузит rewards, redemptions,
+txns и слушает realtime rewards/reward_redemptions. BottomNav: Главная, Задания (родитель), Награды, Семья.
+Запросы на награды видны и на главном экране родителя.
+Этап 9 (профиль, код написан, синтаксис проверен, сборка НЕ проверена): pages/Profile.tsx (маршрут /profile: фото, имя 1-40,
+«О себе» до 200, роль/семья/почта, выход), lib/avatar.ts (фото обрезается в квадрат 512x512, JPEG 0.85, загрузка в bucket
+avatars по пути <user_id>/avatar.jpg с upsert, в profiles.avatar_url пишется ссылка с ?v=время против кэша; удаление фото),
+Shell: аватарка справа вверху ведёт в профиль. После сохранения вызываются refresh() и reload(). Изменения профиля у других
+членов семьи видны после возврата в приложение/сети (у profiles нет family_id, realtime по семье не фильтруется). SQL не менялся.
+Этап 10 (уведомления, код написан, синтаксис проверен, сборка НЕ проверена): data/Notifications.tsx (NotificationsProvider: последние 50
+из таблицы notifications, realtime INSERT/любые изменения с фильтром user_id, перезагрузка при возврате сети/в приложение, отметка
+прочитанным/удаление с мгновенным обновлением и откатом при ошибке), components/NotificationBell.tsx (колокольчик со счётчиком в Shell,
+окно-список с «Прочитать все»/«Очистить», удаление одного, нажатие ведёт: reward_* -> /rewards, member_joined -> /family, остальное -> /;
+всплывающая плашка на 5 сек при новом уведомлении), lib/notices.ts (ссылки, «5 мин назад»). Shell: колокольчик слева от аватарки.
+SQL не менялся (таблица, RLS, права на read_at/delete, realtime, триггеры уведомлений были с Этапа 4). Push при закрытом приложении НЕ сделан.
+Этап 11 (полировка, синтаксис проверен, сборка НЕ проверена): components/ErrorBoundary.tsx (экран «Что-то пошло не так» + «Обновить»
+вместо белого листа, обёрнут весь App); FamilyData отдаёт now (тик раз в минуту, «Просрочено» появляется само); Sheet: Esc, блокировка
+прокрутки страницы под окном, role=dialog; index.html: мета для iOS «на главный экран»; index.css: focus-visible, touch-action,
+overscroll-behavior; FamilyHome: убран устаревший текст «появятся на следующих этапах»; Auth: сброс сообщения при смене вкладки.
+Уже были с прошлых этапов: скелетоны загрузки, пустые состояния, баннер «нет связи», защита от двойного нажатия.
+Этап 12 (тесты, написаны, npm install не запускался): vitest ^2.1 в devDependencies, vitest.config.ts, команды npm test / npm run test:watch.
+Тесты в src/lib/__tests__/: tasks.test.ts (viewOf, dayDiff, formatDue, matchesFilter, toLocalInput; каждое задание ровно в одном фильтре),
+errors.test.ts (humanError), notices.test.ts (ago, noticeLink). Всего 27 проверок. Прогнаны на временной заглушке vitest (node:test) в 4 часовых
+поясах, все прошли; настоящий vitest ещё не запускался. Экраны, realtime и SQL тестами не покрыты (нужна ручная проверка на телефонах).
+Этап 13 (README): README.md переписан по шагам: Supabase (5 SQL по порядку), .env, npm run dev, Netlify (переменные окружения), первый запуск
+семьи, установка на телефон, ручной чек-лист из 7 пунктов, таблица «если что-то не работает».
+Файл .env уже заполнен ключами пользователя (publishable key публичный, URL https://iuyxtwastuvgayreqnoc.supabase.co).
+Переменная для ключа в коде называется VITE_SUPABASE_ANON_KEY (туда вставлен sb_publishable_...).
+
+ФАЙЛЫ
+package.json            зависимости и команды (dev, build, typecheck, test)
+index.html              шрифты, мета для PWA
+vite.config.ts          Vite + PWA-манифест (иконки public/icon-*.png)
+tailwind.config.js      цвета, шрифты, радиусы
+src/index.css           базовые стили, классы .btn .btn-primary .card .input
+src/main.tsx, App.tsx   запуск и маршруты (пока один временный экран)
+src/lib/supabase.ts     клиент Supabase, флаг isConfigured (читает .env)
+src/components/ConfigMissing.tsx  экран «вставьте ключи»
+src/pages/Welcome.tsx   временный экран, заменим на Этапе 3
+.env.example            шаблон переменных (VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY)
+supabase/migrations/    пока пусто, SQL будет на Этапе 4
+
+БАЗА / RLS / АВТОРИЗАЦИЯ
+SQL написан (см. выше). Ключевые решения: все изменения баллов/заявок/ролей только через SQL-функции
+(create_family, create_invite, join_family, remove_child, submit_task, approve_submission, reject_submission,
+request_reward, approve_redemption, reject_redemption); у клиента нет прав писать в баллы/роли. Родители равны.
+Задания: статусы todo/submitted/approved/rejected, «просрочено» считается на клиенте (due_at < now). Повтор: при
+подтверждении создаётся следующее задание (next_due). Баланс = view child_balances (сумма journal).
+Коды приглашения: 10 символов, одноразовые, 7 дней. Один пользователь = одна семья.
+Уведомления создаются триггерами/функциями в таблицу notifications (клиент их только читает). Таблицы по плану: profiles, families, family_members (только parent|child),
+family_invites, tasks, task_submissions, points_transactions, rewards, reward_redemptions, notifications.
+
+НЕ НАСТРОЕНО
+Проект Supabase СОЗДАН (регион Европа, Data API включён, auto-expose таблиц выключен, auto-RLS включён). Подтверждение почты отключено (пользователь делал это через Authentication -> Sign In / Providers). SQL 001_init.sql ещё НЕ применён. npm install и сборка в среде Claude
+НЕ запускались (нет доступа к сети), поэтому сборка пока НЕ проверена.
+
+ИЗВЕСТНЫЕ ПРОБЛЕМЫ
+Нет.
+
+NEXT_STEP
+Этапы 1-13 написаны. Дальше: первая реальная сборка (npm install, npm test, npm run build), исправление ошибок, проверка на телефонах по чек-листу из README.
+Пользователю: проверка в реальном приложении возможна только после сборки (нужен ПК или Netlify из GitHub).
+0. Пользователь вставляет 001_init.sql в Supabase SQL Editor (Run). При ошибке прислать текст. Затем проверка
+   регистрации/семьи/кодов (нужна сборка на ПК или Netlify).
+1. Пользователь: установить Node.js, выполнить npm install и npm run dev, подтвердить, что открывается
+   экран «Нужно подключить Supabase» (если будут ошибки, прислать текст).
+2. Пользователь: создать проект Supabase и прислать готовность (Claude даст пошаговую инструкцию).
+3. Claude: Этап 3 (вход, регистрация, создание семьи/присоединение, роли), затем Этап 4 (SQL + RLS).
+Как продолжить в новом чате: сначала прочитать этот файл и файлы проекта, не начинать заново.
