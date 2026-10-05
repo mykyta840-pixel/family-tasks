@@ -34,12 +34,14 @@ export interface Txn {
 
 export const ICONS = ['🎮', '🍫', '🎬', '🍕', '🍦', '🧸', '🎢', '📱', '🚲', '⚽', '🎨', '🎁']
 
-export const REDEMPTION_UI: Record<RedemptionStatus, { label: string; cls: string }> = {
-  pending: { label: 'Ждёт родителя', cls: 'bg-review-soft text-review' },
-  approved: { label: 'Выдано', cls: 'bg-ok-soft text-ok' },
-  rejected: { label: 'Отказано', cls: 'bg-warn-soft text-warn' },
+// Цвета статусов запросов; подписи берутся из переводов (red.*)
+export const REDEMPTION_UI: Record<RedemptionStatus, { cls: string }> = {
+  pending: { cls: 'bg-review-soft text-review' },
+  approved: { cls: 'bg-ok-soft text-ok' },
+  rejected: { cls: 'bg-warn-soft text-warn' },
 }
 
-export function formatWhen(iso: string): string {
-  return new Date(iso).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+const LOC: Record<string, string> = { en: 'en-GB', de: 'de-DE', ru: 'ru-RU', uk: 'uk-UA' }
+export function formatWhenI18n(iso: string, lang: string): string {
+  return new Date(iso).toLocaleString(LOC[lang] ?? 'en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 }

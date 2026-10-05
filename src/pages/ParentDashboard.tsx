@@ -1,87 +1,105 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
+import { BellRing, CheckCheck, ChevronRight, History, Plus, Star, UserPlus } from 'lucide-react'
 import { useAuth } from '../auth/AuthProvider'
 import { useFamilyData } from '../data/FamilyData'
-import { greeting, type Child } from '../lib/tasks'
+import type { Child } from '../lib/tasks'
+import { useI18n } from '../i18n'
 import TaskCard from '../components/TaskCard'
 import ReviewActions from '../components/ReviewActions'
+import RewardIcon from '../components/RewardIcon'
 import Avatar from '../components/Avatar'
 import RedemptionActions from '../components/RedemptionActions'
 
+function greetKey(): string {
+  const h = new Date().getHours()
+  return h < 5 ? 'greet.night' : h < 12 ? 'greet.morning' : h < 18 ? 'greet.day' : 'greet.evening'
+}
+
 export default function ParentDashboard() {
+  const { t } = useI18n()
   const { profile } = useAuth()
   const { tasks, children, redemptions, loading, error, reload } = useFamilyData()
   const pendingRed = redemptions.filter((r) => r.status === 'pending')
   const byId = useMemo(() => new Map<string, Child>(children.map((c) => [c.id, c] as [string, Child])), [children])
-  const review = tasks.filter((t) => t.status === 'submitted')
-  const active = tasks.filter((t) => t.status === 'todo' || t.status === 'rejected').length
+  const review = tasks.filter((x) => x.status === 'submitted')
+  const active = tasks.filter((x) => x.status === 'todo' || x.status === 'rejected').length
+  const attention = review.length + pendingRed.length
 
   return (
     <div className="flex flex-col gap-5">
-      <h1 className="font-display text-2xl font-semibold leading-tight">
-        {greeting()}, {profile?.display_name} 👋
-      </h1>
-      {error && <p className="rounded-2xl bg-warn-soft p-3 text-sm text-warn">{error}</p>}
+      <div>
+        <div className="text-sm text-ink/60">{t(greetKey())}</div>
+        <h1 className="font-display text-2xl font-semibold leading-tight">{profile?.display_name}</h1>
+      </div>
+      {error && <p role="alert" className="rounded-ctl border border-warn/30 bg-warn-soft p-3 text-sm text-warn">{error}</p>}
 
       {loading ? (
         <>
-          <div className="h-24 animate-pulse rounded-card bg-ink/5" />
-          <div className="h-40 animate-pulse rounded-card bg-ink/5" />
+          <div className="skeleton h-28" />
+          <div className="skeleton h-32" />
+          <div className="skeleton h-14" />
         </>
       ) : children.length === 0 ? (
         <div className="card flex flex-col items-center gap-3 p-6 text-center">
-          <div className="text-4xl">🧒</div>
-          <h2 className="text-lg font-semibold">Добавьте ребёнка</h2>
-          <p className="text-ink/60">Пригласите ребёнка по коду, и сможете создавать для него задания.</p>
-          <Link to="/family" className="btn-primary w-full">
-            Пригласить ребёнка
-          </Link>
+          <div className="grid h-14 w-14 place-items-center rounded-2xl bg-brand-soft text-brand"><UserPlus size={28} aria-hidden /></div>
+          <h2 className="text-lg font-semibold">{t('dash.addChild')}</h2>
+          <p className="text-ink/60">{t('dash.addChildText')}</p>
+          <Link to="/family" className="btn-primary w-full">{t('dash.invite')}</Link>
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="card">
-              <div className="font-display text-3xl font-semibold text-review">{review.length}</div>
-              <div className="text-sm text-ink/60">ждут проверки</div>
+          {/* главное: что требует внимания родителя */}
+          <div className={`flex items-center gap-4 rounded-card border p-5 shadow-card ${
+            attention > 0 ? 'border-brand/40 bg-gradient-to-br from-brand to-brand-dark text-on-brand shadow-glow' : 'glass'}`}>
+            <div className={`grid h-12 w-12 shrink-0 place-items-center rounded-2xl ${attention > 0 ? 'bg-black/20' : 'bg-ok-soft text-ok'}`}>
+              {attention > 0 ? <BellRing size={24} aria-hidden /> : <CheckCheck size={24} aria-hidden />}
             </div>
-            <div className="card">
-              <div className="font-display text-3xl font-semibold text-brand">{active}</div>
-              <div className="text-sm text-ink/60">активных заданий</div>
+            <div className="min-w-0">
+              <div className="font-display text-lg font-semibold leading-tight">
+                {attention > 0 ? t('dash.attention', { n: attention }) : t('dash.allClear')}
+              </div>
+              <div className={`mt-0.5 text-sm ${attention > 0 ? 'opacity-85' : 'text-ink/60'}`}>
+                {attention > 0 ? t('dash.attentionSub') : t('dash.allClearSub')}
+              </div>
             </div>
           </div>
 
-          <div className="card flex flex-col gap-3">
+          <div className="card flex flex-col gap-1">
+            <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink/60">{t('dash.kids')}</div>
             {children.map((c) => (
-              <div key={c.id} className="flex items-center gap-3">
+              <div key={c.id} className="flex min-h-[52px] items-center gap-3">
                 <Avatar name={c.name} url={c.avatar_url} size={40} />
                 <div className="flex-1 font-medium">{c.name}</div>
-                <div className="rounded-full bg-star-soft px-3 py-1 font-display font-semibold text-star">⭐ {c.balance}</div>
+                <div className="inline-flex items-center gap-1 rounded-full bg-star-soft px-3 py-1 font-display font-semibold text-star">
+                  <Star size={14} fill="currentColor" aria-hidden /> {c.balance}
+                </div>
               </div>
             ))}
+            <div className="mt-2 flex items-center justify-between border-t border-ink/10 pt-3 text-sm text-ink/60">
+              <span>{t('dash.active', { n: active })}</span>
+              <Link to="/history" className="inline-flex min-h-[44px] items-center gap-1 font-medium text-brand">
+                <History size={16} aria-hidden /> {t('dash.history')} <ChevronRight size={16} aria-hidden />
+              </Link>
+            </div>
           </div>
 
-          <Link to="/history" className="-mt-2 text-center text-sm font-medium text-brand">
-            История баллов →
-          </Link>
+          <Link to="/tasks/new" className="btn-primary w-full"><Plus size={20} aria-hidden /> {t('dash.create')}</Link>
 
-          <Link to="/tasks/new" className="btn-primary w-full">
-            ➕ Создать задание
-          </Link>
-
-          <h2 className="text-lg font-semibold">Ожидают проверки</h2>
-          {review.length === 0 ? (
-            <p className="rounded-2xl bg-ink/5 p-4 text-center text-ink/60">Пока всё проверено. Отличная работа! ✨</p>
-          ) : (
-            review.map((t) => (
-              <TaskCard key={t.id} task={t} child={byId.get(t.assigned_to)}>
-                <ReviewActions taskId={t.id} onDone={() => void reload()} />
-              </TaskCard>
-            ))
+          {review.length > 0 && (
+            <>
+              <h2 className="px-1 text-sm font-semibold uppercase tracking-wide text-ink/60">{t('dash.approvals')}</h2>
+              {review.map((x) => (
+                <TaskCard key={x.id} task={x} child={byId.get(x.assigned_to)}>
+                  <ReviewActions taskId={x.id} onDone={() => void reload()} />
+                </TaskCard>
+              ))}
+            </>
           )}
 
           {pendingRed.length > 0 && (
             <>
-              <h2 className="text-lg font-semibold">Запросы на награды</h2>
+              <h2 className="px-1 text-sm font-semibold uppercase tracking-wide text-ink/60">{t('dash.rewardRequests')}</h2>
               {pendingRed.map((r) => {
                 const kid = byId.get(r.child_id)
                 return (
@@ -89,12 +107,12 @@ export default function ParentDashboard() {
                     <div className="flex items-center gap-3">
                       {kid && <Avatar name={kid.name} url={kid.avatar_url} size={36} />}
                       <div className="min-w-0 flex-1">
-                        <div className="text-sm text-ink/60">{kid?.name ?? 'Ребёнок'} хочет</div>
-                        <div className="font-semibold">
-                          {r.icon} {r.title}
-                        </div>
+                        <div className="text-sm text-ink/60">{t('dash.wants', { name: kid?.name ?? t('dash.child') })}</div>
+                        <div className="truncate font-semibold"><RewardIcon icon={r.icon} size={16} className="mr-1.5 inline" />{r.title}</div>
                       </div>
-                      <span className="shrink-0 rounded-full bg-star-soft px-3 py-1 font-display font-semibold text-star">⭐ {r.cost}</span>
+                      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-star-soft px-3 py-1 font-display font-semibold text-star">
+                        <Star size={14} fill="currentColor" aria-hidden /> {r.cost}
+                      </span>
                     </div>
                     <RedemptionActions id={r.id} onDone={() => void reload()} />
                   </div>

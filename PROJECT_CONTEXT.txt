@@ -111,3 +111,164 @@ NEXT_STEP
 2. Пользователь: создать проект Supabase и прислать готовность (Claude даст пошаговую инструкцию).
 3. Claude: Этап 3 (вход, регистрация, создание семьи/присоединение, роли), затем Этап 4 (SQL + RLS).
 Как продолжить в новом чате: сначала прочитать этот файл и файлы проекта, не начинать заново.
+
+
+=== REDESIGN (этап A: фундамент) ===
+СДЕЛАНО: токены 4 тем в src/index.css (purple, turquoise, gold, blue; data-theme на <html>), tailwind-цвета читают CSS-переменные
+(все старые классы bg-brand/text-ink... перекрашиваются сами; bg-white -> bg-surface, text-white -> text-on-brand), glass/.card/.btn/.input
+(контролы 48px, радиус 14, карточки 20), src/theme/theme.tsx + ThemeSwitcher.tsx (пока НЕ вставлен ни в один экран),
+src/i18n (en/de/ru/uk, t(), I18nProvider с forceLang для языка ребёнка; 5-й язык = файл + строка в LOCALES),
+переведены только BottomNav и баннер офлайна. Сборка НЕ проверена (нет сети).
+НАХОДКИ: в БД нет tasks.image_url и profiles.language. Для "картинка задания" и "язык ребёнка выбирает родитель" нужна миграция 002
+(колонки + bucket task-images + RPC set_member_language). Без неё эти две фичи невозможны.
+ОСТАЛОСЬ: вставить ThemeSwitcher/выбор языка в Profile; вынести строки всех страниц в locales; Login/Registration; доска записок (ChildHome);
+деталь задания; статусы с иконками (не только цвет); награды (иконки вместо emoji); семья; skeleton/empty/error; микроанимации; миграция 002.
+NEXT_STEP: npm install && npm run build у пользователя, затем миграция 002, затем экраны по порядку выше.
+
+=== REDESIGN (этап B) ===
+СДЕЛАНО: supabase/migrations/002_images_languages.sql (tasks.image_url, profiles.language, RPC set_member_language, bucket task-images;
+ЕЩЁ НЕ ЗАПУЩЕНА пользователем). Auth.tsx переделан: glass-панель, выбор языка и темы до входа, показ пароля, loading, все строки через t().
+ИЗВЕСТНО: сообщения об ошибках из lib/errors.ts пока только на русском. Регистрация и вход — один экран с двумя вкладками.
+NEXT_STEP: доска записок (ChildHome) + окно задания + статусы с иконками; поле картинки в TaskForm (после запуска 002).
+
+=== REDESIGN (этап C) ===
+СДЕЛАНО: ChildHome = доска записок (NoteCard: булавка, наклон, картинка image_url с fallback, очки, срок, статус), TaskDetail (bottom sheet,
+кнопка «Выполнено» -> submit_task как раньше, экран «отправлено»), StatusBadge (иконка+текст+цвет), прогресс дня в карточке баллов,
+lucide вместо emoji на этих экранах, TaskCard (родитель) тоже на StatusBadge. Sheet: затемнение чёрное во всех темах.
+tasks.ts: Task.image_url (необязательное), formatDueI18n. i18n: ключи child.*, task.*, date.*, repeat.*.
+ИЗВЕСТНО: статусов «В процессе» и «Выполнено» (отдельно от «Ожидает подтверждения») в БД нет — не добавлены. Картинку пока нельзя выбрать
+(поле в TaskForm — следующий шаг). language ребёнка ещё не подключён в AuthProvider (forceLang).
+NEXT_STEP: TaskForm (выбор картинки, загрузка в task-images), подключить profiles.language -> I18nProvider forceLang, выбор языка ребёнка в Family.
+
+=== REDESIGN (этап D) === (миграция 002 пользователем НЕ запущена — всё ниже работает без неё)
+СДЕЛАНО: Profile: карточка «тема + язык» (ThemeSwitcher, новый LanguageSelect) — темы и язык теперь переключаются внутри приложения.
+ParentDashboard переделан: главный блок «что ждёт вас» (проверки + запросы наград), дети с баллами, кнопка «Создать задание», все строки через t().
+ОСТАЛОСЬ БЕЗ МИГРАЦИИ: Tasks/TaskList, Rewards, Family, History, Onboarding, ReviewActions/RedemptionActions, errors.ts — всё ещё русские строки, старый вид.
+ТРЕБУЕТ МИГРАЦИИ 002: выбор картинки в TaskForm, язык ребёнка от родителя (forceLang).
+NEXT_STEP: награды (ChildShop/ParentRewards), TaskList/TaskForm (без картинки), Family, перевод оставшихся строк.
+
+=== REDESIGN (этап E) === (миграция 002 всё ещё не запущена)
+СДЕЛАНО: ChildShop переделан (карточки наград с полоской «сколько не хватает», окно подтверждения обмена, статусы запросов с иконками, i18n),
+components/RewardIcon (emoji из БД -> иконки Lucide, чтобы не менять БД), ParentRewards и ParentDashboard показывают RewardIcon вместо emoji.
+ОСТАЛОСЬ: ParentRewards (форма/строки/перевод), TaskList, TaskForm (без картинки), FamilyHome, History, Onboarding, ReviewActions, RedemptionActions, errors.ts.
+NEXT_STEP: FamilyHome (карточки семьи: аватар, роль, баллы) + History, потом TaskList/TaskForm.
+
+
+=== REDESIGN (этап F) === (миграция 002 всё ещё не запущена; backend/RLS/логика не менялись)
+СДЕЛАНО: FamilyHome переделан: шапка с названием семьи, карточки участников (аватар, роль-бейдж с иконкой, у детей баллы + «Активных»/«На проверке»
+из useFamilyData), родители выше детей, скелетоны, пустое состояние «детей нет», блок приглашения (иконки, спиннер на кнопках, крупный код, share/copy),
+кнопка выхода btn-danger. History переделан: группировка по дням (Сегодня/Вчера/дата), иконки по виду операции (task/reward/adjust),
+сводка «Заработано/Потрачено» по текущему списку (до 100 последних операций), фильтры-табы для родителя, пустое состояние, скелетоны. Все строки через t().
+Новые ключи i18n во всех 4 языках: family.* и hist.*. Логика Supabase (select/rpc create_invite/realtime) не менялась.
+Сборка (npm install / build) по-прежнему НЕ запускалась в среде Claude (npm даёт 403). Проверен только синтаксис (TypeScript transpile) и равенство наборов ключей в 4 локалях.
+ОСТАЛОСЬ: TaskList, TaskForm (без картинки), ParentRewards (форма/строки/перевод), ReviewActions, RedemptionActions, NotificationBell, Onboarding, ErrorBoundary,
+Profile (остальные строки), lib/errors.ts -> i18n, lib/tasks.ts FILTERS/greeting, formatWhen в lib/rewards.ts (ru-RU) больше не нужен History.
+NEXT_STEP: TaskList + TaskForm, затем ParentRewards, ReviewActions/RedemptionActions, Onboarding, errors.ts.
+
+=== REDESIGN (этап G) === (миграция 002 всё ещё не запущена; backend/RLS/логика не менялись)
+СДЕЛАНО: TaskList (шапка с кнопкой «Новое», фильтры-табы с счётчиками, скелетоны, пустые состояния с иконкой и кнопкой, плавное появление карточек),
+TaskForm (без картинки: секции-карточки «Для кого / Название / Награда / Срок / Повторение», единые чипы, переключатель «Важное» role=switch,
+иконки Star/Flame/Trash2/Loader2, валидации и все подписи через t()), ReviewActions и RedemptionActions (иконки Check/X/Gift, спиннер, autoFocus на причине, t()).
+Новые ключи i18n в 4 языках: tasks.*, filter.* (today/upcoming/review/done/overdue), form.*, day.0..6, review.*, red.give/giving/deny/denying/reasonPh.
+FILTERS в lib/tasks.ts оставлен (из него берутся только ключи; подписи теперь filter.* в локалях). Логика (select/insert/update/delete, rpc) не менялась.
+Сборка по-прежнему не запускалась в среде Claude (npm 403); проверен синтаксис и паритет ключей локалей.
+ОСТАЛОСЬ: ParentRewards (форма/строки/перевод), NotificationBell, Onboarding, ErrorBoundary, Profile (остальные строки), lib/errors.ts -> i18n,
+lib/tasks.ts greeting()/STATUS_UI.label/formatDue (ru, используются тестами), lib/rewards.ts REDEMPTION_UI.label/formatWhen (ru).
+NEXT_STEP: ParentRewards, затем NotificationBell, Onboarding, ErrorBoundary, errors.ts, Profile.
+
+=== REDESIGN (этап H) === (миграция 002 всё ещё не запущена; backend/RLS/логика не менялись)
+СДЕЛАНО: ParentRewards (карточки наград с иконками, плавное появление, скрытые награды приглушены, чипы цены, switch «Показывать детям», пустое состояние,
+статусы запросов с иконками, клавиатурный доступ), NotificationBell (btn-icon, BellOff в пустом состоянии, стеклянная плашка-тост, t() везде, время через ago(..., t)),
+Onboarding (иконки, спиннеры, t()), ErrorBoundary (иконка Frown + RefreshCw; текст через функцию Fallback с useI18n; ErrorBoundary внутри I18nProvider),
+Profile (все строки через t(), btn-danger для выхода, галочка «Сохранено»).
+ОШИБКИ: lib/errors.ts теперь работает через ключи: errorKey(err) -> 'err.*', humanError(err, t = ruT) (без t отвечает по-русски, на этом держатся тесты),
+errorDetail(err) -> техническая причина. Auth показывает под ошибкой «Причина: ...» (нужно для диагностики Supabase). Новые правила: простой пароль,
+rate limit, регистрация отключена, неверный ключ, ошибка базы при создании профиля, bad_image. Все вызовы humanError в приложении передают t.
+lib/notices.ts: ago(iso, now, t = ruT) -> ключи ago.*. Новый файл i18n/ruT.ts (русский переводчик без React, для чистой логики и тестов).
+Новые ключи в 4 языках: err.*, ago.*, bell.*, onb.*, boundary.*, rew.*, profile.*, auth.reason. Тесты errors/notices расширены (33 проверки всего по lib).
+ОГРАНИЧЕНИЕ: заголовки и тексты самих уведомлений (notifications.title/body) приходят из БД готовой русской строкой (триггеры SQL); перевести их без изменения БД нельзя.
+Сборка по-прежнему не запускалась в среде Claude (npm 403); проверен синтаксис, неиспользуемые импорты (вручную), паритет ключей, lib-тесты на заглушке vitest (node:test) в 3 часовых поясах.
+ДОБАВЛЕНО В КОНЦЕ ЭТАПА H: ConfigMissing (t(), текст про Netlify), Shell aria-label профиля, текст ошибки загрузки в FamilyData (через useI18n + ref, ключ data.refreshFailed).
+ОСТАЛОСЬ: lib/tasks.ts greeting()/STATUS_UI.label/FILTERS.label/formatDue (ru; используются тестами или уже не нужны), lib/rewards.ts REDEMPTION_UI.label/formatWhen (ru, уже не используются в UI),
+подключение profiles.language -> I18nProvider forceLang и выбор языка ребёнка (ждут миграцию 002), картинки заданий (002), проверка 4 тем × 4 языков на телефонах, микроанимации, empty/error states по месту.
+NEXT_STEP: пользователь делает сборку (Netlify) и присылает ошибки; затем миграция 002 и forceLang, потом чистка устаревших ru-строк в lib/.
+
+=== REDESIGN (этап I: язык из профиля) === МИГРАЦИЯ 002 ЗАПУЩЕНА пользователем (tasks.image_url, profiles.language, RPC set_member_language, bucket task-images).
+СДЕЛАНО: язык хранится в profiles.language. AuthProvider читает language; App.tsx: компонент LanguageSync (внутри AuthProvider) вызывает setForced из i18n.
+I18nProvider: новое состояние forced (приоритет: forceLang prop > forced из профиля > локальный выбор localStorage), в контексте появился setForced.
+Profile: родитель меняет свой язык (setLang + setForced + rpc set_member_language + refresh); ребёнок видит выбор, только пока родитель не назначил язык, после назначения вместо выбора текст «Язык выбирает родитель».
+FamilyHome: у карточки ребёнка (только для родителя) ряд из 4 флагов «Язык ребёнка» -> rpc set_member_language(p_user, p_lang) + перезагрузка списка.
+Ребёнок подхватывает новый язык при следующем открытии приложения или возвращении в него (профиль перечитывается по visibilitychange/online), realtime для profiles нет.
+Новые ключи: family.childLang, profile.langByParent (258 ключей в каждой локали).
+ОСТАЛОСЬ: картинки заданий (TaskForm: выбор/загрузка в bucket task-images по пути <family_id>/<uuid>.jpg, tasks.image_url; показ в TaskCard и TaskDetail; сжатие как в lib/avatar.ts),
+чистка устаревших ru-строк в lib/tasks.ts и lib/rewards.ts, проверка на телефонах 4 тем × 4 языков.
+NEXT_STEP: картинки заданий.
+
+=== REDESIGN (этап J: картинки заданий) === (миграция 002 запущена; RLS и функции базы не менялись)
+СДЕЛАНО: lib/taskImage.ts (сжатие до 1280 px по длинной стороне в JPEG, при >1,9 МБ качество 0.6; загрузка в bucket task-images по пути <family_id>/<uuid>.jpg;
+removeTaskImage по ссылке). lib/tasks.ts: taskImagePath(url) (путь файла из публичной ссылки). TaskForm: секция «Картинка» (предпросмотр, добавить/заменить/убрать;
+файл загружается только при сохранении; в payload image_url попадает только если картинку меняли или убрали; при ошибке сохранения новый файл удаляется,
+после успеха удаляется старый; при удалении задания удаляется его файл). TaskCard: миниатюра 56 px рядом с названием. NoteCard и TaskDetail (ребёнок) уже показывали image_url.
+Новые ключи: form.image, form.imageAdd, form.imageChange, form.imageRemove, form.imageHint (263 ключа в каждой локали). Тестов 36 (добавлены 3 на taskImagePath).
+ЗАМЕЧАНИЕ: удаление файлов best-effort (void). Если в Supabase на storage.objects нет SELECT-политики для родителей, remove может молча не удалять файл (останется лишний файл, на работу не влияет).
+Опциональный SQL: create policy task_images_select on storage.objects for select to authenticated using (bucket_id = 'task-images' and public.is_family_parent(((storage.foldername(name))[1])::uuid));
+ОСТАЛОСЬ: чистка устаревших ru-строк в lib/tasks.ts (STATUS_UI.label, FILTERS.label, formatDue, greeting) и lib/rewards.ts (REDEMPTION_UI.label, formatWhen) — тесты используют formatDue, поэтому переносить аккуратно;
+проверка на телефонах (4 темы × 4 языка, загрузка картинки с камеры); микроанимации по месту.
+NEXT_STEP: пользователь загружает файлы, собирает, проверяет картинку задания на двух телефонах; затем чистка ru-строк в lib/.
+
+=== ФИНАЛ (этап K: чистка и документация) ===
+СДЕЛАНО: из lib/tasks.ts и lib/rewards.ts удалены устаревшие русские строки (STATUS_UI/REDEMPTION_UI теперь только цвета, FILTERS только ключи, удалены greeting() и formatWhen());
+formatDue() оставлен для тестов как обёртка formatDueI18n(iso, 'ru', ruT). README обновлён: 6 SQL-файлов (06_images_languages.sql скопирован в supabase/manual/), ключ legacy anon (eyJ),
+новые строки таблицы проблем, список возможностей. .env.example: подсказка про legacy-ключ.
+ПРОВЕРКИ (в среде Claude, без npm install): TypeScript-проверка собственного кода с заглушками для сторонних модулей (react, router, lucide, framer-motion, supabase): настоящих ошибок
+(несуществующие экспорты/имена, лишние аргументы, неиспользуемые локальные) не найдено; тесты lib 36/36 на заглушке vitest в 4 часовых поясах; 263 ключа в каждой из 4 локалей, все t('...') существуют.
+НЕ ПРОВЕРЕНО: реальные npm install / npm run build / npm test (npm в среде Claude даёт 403) и работа на телефонах.
+ИЗВЕСТНЫЕ ОСОБЕННОСТИ: (1) в проекте Supabase пользователя работает только legacy anon-ключ (eyJ...), sb_publishable_ давал отказ; (2) тексты уведомлений приходят из БД по-русски (триггеры SQL);
+(3) язык ребёнка подхватывается при следующем открытии приложения (realtime для profiles нет); (4) удаление файлов картинок best-effort (нужна SELECT-политика на storage.objects для надёжности).
+NEXT_STEP: пользователь загружает файлы на GitHub, Netlify собирает, проверка на двух телефонах по чек-листу README; ошибки сборки или экранов присылать скриншотом.
+
+=================== HANDOFF ДЛЯ НОВОГО ЧАТА (redesign, состояние после этапа K, финал) ===================
+ЗАДАЧА: полный UI/UX-редизайн (premium + neon + glass), БЕЗ изменений логики/Supabase/RLS/realtime. Стек и backend не трогать.
+ВАЖНО: сборка (npm install / npm run build / npm test) НИ РАЗУ не запускалась (в среде Claude нет сети). Первым делом: попросить пользователя
+выполнить `npm install && npm run build` и прислать ошибки, исправить. Только потом продолжать.
+МИГРАЦИЯ 002 (supabase/migrations/002_images_languages.sql) ЗАПУЩЕНА пользователем (этап I). Нужна для: tasks.image_url (картинка задания),
+profiles.language + RPC set_member_language (язык ребёнка выбирает родитель). Пока не запущена — НЕ писать в БД поля image_url/language.
+Код читает task.image_url как необязательное (select('*')), fallback-картинка есть.
+
+ДИЗАЙН-РЕШЕНИЯ
+- Темы: purple (по умолчанию), turquoise, gold, blue. Переменные-каналы "R G B" в src/index.css, [data-theme] на <html>; tailwind-цвета
+  (brand, ink, paper, surface, star, ok, review, warn, on-brand) читают переменные. Использовать bg-surface (не bg-white), text-on-brand (не text-white).
+- Размеры: контролы min-h 48px (кнопки/inputs), radius-ctl 14px, radius-card 20px, иконка-кнопка 44px, нижняя навигация 64px.
+- Классы: .btn .btn-primary .btn-soft .btn-danger .btn-icon .glass .card .input .skeleton.
+- Иконки: только lucide-react (emoji в UI убирать; награды: emoji из БД -> components/RewardIcon).
+- Статусы: components/StatusBadge (иконка + текст + цвет). Заголовки секций: text-sm uppercase tracking-wide text-ink/60.
+- Ребёнок: доска записок (NoteCard + TaskDetail bottom sheet) в ChildHome.
+- i18n: src/i18n (en/de/ru/uk), useI18n().t('ключ', {vars}); новый язык = locales/xx.ts + строка в LOCALES. Ключи группируются: auth.*, child.*, task.*,
+  dash.*, shop.*, red.*, status.*, repeat.*, date.*, nav.*, settings.*, theme.*, greet.*, common.*. Сейчас язык хранится в localStorage;
+  язык из profiles.language подключён через LanguageSync/setForced (этап I).
+
+ПЕРЕДЕЛАНО: Auth (вход+регистрация), ChildHome, ChildShop, ParentDashboard, FamilyHome, History, TaskList, TaskForm, ReviewActions, RedemptionActions, ParentRewards, NotificationBell, Onboarding, ErrorBoundary, Profile, TaskCard, Shell/BottomNav (частично i18n), Profile (карточка темы и языка),
+Sheet (тёмный backdrop). Новые: StatusBadge, NoteCard, TaskDetail, RewardIcon, LanguageSelect, theme/*, i18n/*.
+НЕ ПЕРЕДЕЛАНО: все экраны переделаны и переведены; остались только устаревшие русские строки в lib/tasks.ts и lib/rewards.ts (см. ОСТАЛОСЬ этапа H).
+НЕТ В БД (не добавлено): статусы «В процессе» и отдельное «Выполнено»; push; отдельные разделы Approvals/Points/Notifications как вкладки.
+
+ПЛАН ДАЛЬШЕ (по порядку)
+1) Сборка у пользователя, правка ошибок. 2) [сделано: FamilyHome, History; выбор языка ребёнка в Family ждёт миграцию 002]. 4) TaskList + TaskForm (понятная форма; поле картинки после 002: загрузка в bucket task-images по пути <family_id>/<uuid>.jpg,
+   как в lib/avatar.ts). 5) ParentRewards, ReviewActions, RedemptionActions, NotificationBell, Onboarding, ErrorBoundary — i18n + стиль.
+6) lib/errors.ts -> ключи i18n. 7) Подключить profiles.language -> I18nProvider forceLang (в Gate/App). 8) Микроанимации, empty/error states,
+   проверка 4 тем × 4 языков на мобильных размерах; обновлять этот файл после каждого этапа.
+
+=== ЭТАП L: PUSH-УВЕДОМЛЕНИЯ + «НАПОМНИТЬ» === (код написан, сборка/деплой/доставка НЕ проверялись: в среде Claude нет сети)
+Схема: любая строка в notifications -> триггер notifications_push (pg_net) -> Edge Function send-push (web-push, VAPID) -> устройства из push_subscriptions.
+БАЗА (supabase/manual/07_push.sql = migrations/003_push.sql): push_subscriptions (RLS без политик, клиенту закрыта), RPC save_push_subscription,
+delete_push_subscription, remind_task(p_task_id) -> int (число устройств ребёнка с push; только родитель семьи; статусы todo/rejected; не чаще раза в 5 мин,
+ошибка remind_too_soon; текст по profiles.language), send_test_notification() -> int. В триггере зашит URL проекта и PUSH_WEBHOOK_SECRET (совпадает с секретом функции).
+EDGE FUNCTION: supabase/functions/send-push/index.ts (Verify JWT выключить; секреты VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT, PUSH_WEBHOOK_SECRET;
+шлёт только уведомления младше 10 минут; мёртвые подписки 404/410 удаляет).
+КЛИЕНТ: vite.config.ts -> VitePWA strategies 'injectManifest', свой src/sw.js (workbox precache + NavigationRoute как раньше + push/notificationclick/pushsubscriptionchange);
+в devDependencies добавлены workbox-core/precaching/routing. lib/push.ts (состояния unsupported/ios-install/denied/off/on, enablePush/disablePush/syncPush/detachDevice/sendTestPush,
+флаг ft.push.<uid> в localStorage: на общем телефоне чужой аккаунт не подписывается), lib/pushUtil.ts (+ тесты push.test.ts), components: PushBridge (App/Gate: переход по тапу на push, тихая пере-подписка),
+PushSettings (карточка в Profile: включить/тест/выключить), PushPrompt (баннер в Shell, один раз), RemindButton (в TaskCard для родителя, статусы todo/rejected).
+AuthProvider.signOut сначала отвязывает устройство (detachDevice). ChildHome открывает задание по /?task=<id>. errors.ts: remind_too_soon. i18n: push.*, remind.*, err.remindTooSoon (285 ключей в 4 локалях).
+Нужна переменная VITE_VAPID_PUBLIC_KEY (Netlify/.env); без неё push-блоки скрыты, остальное работает. iOS: только из установленного PWA (iOS 16.4+).
+NEXT_STEP: пользователь запускает 07_push.sql, деплоит функцию, задаёт секреты и переменную Netlify; проверка кнопкой «Отправить тест» на двух устройствах.

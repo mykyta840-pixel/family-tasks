@@ -1,54 +1,45 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
+import { ChevronRight, Gift, History, Sparkles, Star } from 'lucide-react'
 import { useAuth } from '../auth/AuthProvider'
 import { useFamilyData } from '../data/FamilyData'
-import { callRpc } from '../lib/actions'
-import { humanError } from '../lib/errors'
-import { viewOf, type Task } from '../lib/tasks'
-import { useOnline } from '../hooks/useOnline'
+import { dayDiff, viewOf, type Task } from '../lib/tasks'
+import { useI18n } from '../i18n'
 import Avatar from '../components/Avatar'
-import TaskCard from '../components/TaskCard'
+import NoteCard from '../components/NoteCard'
+import TaskDetail from '../components/TaskDetail'
 
-function TodoItem({ task, onDone }: { task: Task; onDone: () => Promise<void> }) {
-  const online = useOnline()
-  const lock = useRef(false)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+const boardStyle = { backgroundImage: 'radial-gradient(rgb(var(--ink) / .08) 1px, transparent 1px)', backgroundSize: '14px 14px' }
 
-  async function submit() {
-    if (lock.current) return
-    lock.current = true
-    setBusy(true)
-    setError(null)
-    try {
-      await callRpc('submit_task', { p_task_id: task.id })
-    } catch (e) {
-      setError(humanError(e))
-    } finally {
-      lock.current = false
-      setBusy(false)
-      await onDone()
-    }
-  }
-
+function Board({ title, tasks, onOpen }: { title: string; tasks: Task[]; onOpen: (id: string) => void }) {
   return (
-    <TaskCard task={task}>
-      <button className="btn-primary min-h-[60px] text-lg" onClick={submit} disabled={busy || !online}>
-        {busy ? 'Отправляем…' : '✓ Выполнено'}
-      </button>
-      {error && <p className="rounded-2xl bg-warn-soft p-3 text-sm text-warn">{error}</p>}
-    </TaskCard>
+    <section>
+      <h2 className="mb-3 px-1 text-sm font-semibold uppercase tracking-wide text-ink/60">{title}</h2>
+      <div style={boardStyle} className="grid grid-cols-2 gap-x-3 gap-y-5 rounded-[26px] border border-ink/10 bg-surface/40 p-3 pt-5 shadow-card backdrop-blur-md">
+        {tasks.map((task, i) => <NoteCard key={task.id} task={task} index={i} onOpen={() => onOpen(task.id)} />)}
+      </div>
+    </section>
   )
 }
 
 export default function ChildHome() {
+  const { t } = useI18n()
   const { profile, session } = useAuth()
   const { tasks, children, loading, error, reload } = useFamilyData()
+  const [openId, setOpenId] = useState<string | null>(null)
+  // Переход по нажатию на push: /?task=<id> открывает это задание
+  const [params, setParams] = useSearchParams()
+  useEffect(() => {
+    const id = params.get('task')
+    if (!id) return
+    setOpenId(id)
+    setParams({}, { replace: true })
+  }, [params, setParams])
   const me = children.find((c) => c.id === session?.user.id)
   const balance = me?.balance ?? 0
 
-  // Праздник при получении баллов
+  // Анимация при получении баллов
   const prev = useRef<number | null>(null)
   const [gain, setGain] = useState<number | null>(null)
   useEffect(() => {
@@ -62,74 +53,77 @@ export default function ChildHome() {
     }
   }, [balance, loading])
 
-  const todo = tasks.filter((t) => ['new', 'overdue', 'rejected'].includes(viewOf(t)))
-  const waiting = tasks.filter((t) => t.status === 'submitted')
-  const done = tasks.filter((t) => t.status === 'approved').slice(-5).reverse()
+  const todo = tasks.filter((x) => ['new', 'overdue', 'rejected'].includes(viewOf(x)))
+  const waiting = tasks.filter((x) => x.status === 'submitted')
+  const done = tasks.filter((x) => x.status === 'approved').slice(-4).reverse()
+  const doneToday = done.filter((x) => x.due_at && dayDiff(x.due_at) === 0).length
+  const total = todo.length + waiting.length + doneToday
+  const sentCount = waiting.length + doneToday
+  const pct = total ? Math.round((sentCount / total) * 100) : 0
+  const opened = tasks.find((x) => x.id === openId) ?? null
 
   return (
     <div className="flex flex-col gap-5">
       <div className="flex items-center gap-3">
         <Avatar name={profile?.display_name ?? '?'} url={profile?.avatar_url} size={48} />
-        <h1 className="font-display text-2xl font-semibold leading-tight">
-          Привет, {profile?.display_name}! 👋
-        </h1>
+        <h1 className="font-display text-xl font-semibold leading-tight">{t('child.hello', { name: profile?.display_name ?? '' })}</h1>
       </div>
-      {error && <p className="rounded-2xl bg-warn-soft p-3 text-sm text-warn">{error}</p>}
+      {error && <p role="alert" className="rounded-ctl border border-warn/30 bg-warn-soft p-3 text-sm text-warn">{error}</p>}
 
-      <div className="rounded-card bg-gradient-to-br from-brand to-brand-dark p-5 text-white shadow-card">
-        <div className="text-sm opacity-80">Мои баллы</div>
-        <div className="mt-1 font-display text-5xl font-semibold">⭐ {balance}</div>
-        <Link to="/history" className="mt-2 inline-block text-sm opacity-80 underline">
-          История баллов
+      <div className="relative overflow-hidden rounded-card border border-ink/10 bg-gradient-to-br from-brand to-brand-dark p-5 text-on-brand shadow-glow">
+        <div className="text-sm opacity-80">{t('child.myPoints')}</div>
+        <div className="mt-1 flex items-center gap-2 font-display text-5xl font-semibold leading-none">
+          <Star size={34} fill="currentColor" aria-hidden /> {balance}
+        </div>
+        {total > 0 && (
+          <div className="mt-4">
+            <div className="h-2 overflow-hidden rounded-full bg-black/20" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
+              <motion.div className="h-full rounded-full bg-on-brand" initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.5 }} />
+            </div>
+            <div className="mt-1.5 text-xs opacity-80">{t('child.progress', { a: sentCount, b: total })}</div>
+          </div>
+        )}
+        <Link to="/history" className="mt-3 inline-flex min-h-[44px] items-center gap-1.5 text-sm font-medium opacity-90">
+          <History size={16} aria-hidden /> {t('child.history')}
         </Link>
       </div>
-      <Link to="/rewards" className="btn-soft w-full">
-        🎁 Обменять баллы на награды
+
+      <Link to="/rewards" className="btn-soft w-full justify-between">
+        <span className="inline-flex items-center gap-2"><Gift size={20} aria-hidden /> {t('child.exchange')}</span>
+        <ChevronRight size={18} aria-hidden />
       </Link>
 
       {loading ? (
-        <div className="h-32 animate-pulse rounded-card bg-ink/5" />
+        <div className="grid grid-cols-2 gap-3">{[0, 1, 2, 3].map((i) => <div key={i} className="skeleton h-56" />)}</div>
       ) : (
         <>
-          <h2 className="text-lg font-semibold">Сегодня</h2>
           {todo.length === 0 ? (
-            <p className="rounded-2xl bg-ink/5 p-5 text-center text-ink/60">Заданий нет. Можно отдыхать! 🎈</p>
+            <div className="glass flex flex-col items-center gap-2 rounded-card p-8 text-center text-ink/70">
+              <Sparkles size={28} className="text-brand" aria-hidden />
+              {t('child.empty')}
+            </div>
           ) : (
-            todo.map((t) => <TodoItem key={t.id} task={t} onDone={reload} />)
+            <Board title={t('child.today')} tasks={todo} onOpen={setOpenId} />
           )}
-
-          {waiting.length > 0 && (
-            <>
-              <h2 className="text-lg font-semibold">Ждут проверки</h2>
-              {waiting.map((t) => (
-                <TaskCard key={t.id} task={t} />
-              ))}
-            </>
-          )}
-
-          {done.length > 0 && (
-            <>
-              <h2 className="text-lg font-semibold">Уже сделано</h2>
-              {done.map((t) => (
-                <TaskCard key={t.id} task={t} />
-              ))}
-            </>
-          )}
+          {waiting.length > 0 && <Board title={t('child.waiting')} tasks={waiting} onOpen={setOpenId} />}
+          {done.length > 0 && <Board title={t('child.done')} tasks={done} onOpen={setOpenId} />}
         </>
       )}
+
+      <TaskDetail task={opened} onClose={() => setOpenId(null)} onDone={reload} />
 
       <AnimatePresence>
         {gain !== null && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.5 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9, y: -20 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 16 }}
-            className="pointer-events-none fixed inset-0 z-20 grid place-items-center"
+            initial={{ opacity: 0, scale: 0.6 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9, y: -20 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 18 }}
+            className="pointer-events-none fixed inset-0 z-40 grid place-items-center"
           >
-            <div className="rounded-[32px] bg-white px-8 py-6 text-center shadow-2xl">
-              <div className="text-5xl">🎉</div>
-              <div className="mt-2 font-display text-4xl font-semibold text-star">+{gain} ⭐</div>
+            <div className="glass rounded-[28px] px-8 py-6 text-center shadow-glow">
+              <Sparkles size={36} className="mx-auto text-star" aria-hidden />
+              <div className="mt-2 flex items-center justify-center gap-1 font-display text-4xl font-semibold text-star">
+                +{gain} <Star size={30} fill="currentColor" aria-hidden />
+              </div>
             </div>
           </motion.div>
         )}

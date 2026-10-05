@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { dayDiff, formatDue, matchesFilter, toLocalInput, viewOf, type Task } from '../tasks'
+import { dayDiff, formatDue, matchesFilter, taskImagePath, toLocalInput, viewOf, type Task } from '../tasks'
 
 // Дата «через N дней в полдень» по местному времени (полдень — чтобы не зависеть от перехода на летнее время)
 function daysFromNow(n: number, hour = 12): string {
@@ -124,5 +124,19 @@ describe('matchesFilter', () => {
 describe('toLocalInput', () => {
   it('формат для поля datetime-local', () => {
     expect(toLocalInput(daysFromNow(0))).toMatch(/^\d{4}-\d{2}-\d{2}T12:00$/)
+  })
+})
+
+describe('taskImagePath', () => {
+  it('достаёт путь файла из публичной ссылки', () => {
+    expect(taskImagePath('https://x.supabase.co/storage/v1/object/public/task-images/fam-1/abc.jpg')).toBe('fam-1/abc.jpg')
+  })
+  it('убирает ?v= и расшифровывает символы', () => {
+    expect(taskImagePath('https://x.supabase.co/storage/v1/object/public/task-images/fam-1/a%20b.jpg?v=123')).toBe('fam-1/a b.jpg')
+  })
+  it('чужие и пустые ссылки дают null', () => {
+    expect(taskImagePath(null)).toBe(null)
+    expect(taskImagePath(undefined)).toBe(null)
+    expect(taskImagePath('https://example.com/pic.jpg')).toBe(null)
   })
 })

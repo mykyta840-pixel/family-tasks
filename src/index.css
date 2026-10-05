@@ -2,36 +2,94 @@
 @tailwind components;
 @tailwind utilities;
 
-:root { color-scheme: light; }
+/* ===== DESIGN TOKENS =====
+   Темы меняют ТОЛЬКО цвета/свечение/тени. Типографика, отступы, размеры — общие.
+   Каналы "R G B" нужны, чтобы работали прозрачности (bg-brand/20). */
+:root, [data-theme='purple'] {
+  color-scheme: dark;
+  --bg: 11 8 24; --surface: 27 20 50; --ink: 238 234 255;
+  --brand: 147 51 234; --brand-soft: 45 29 80; --brand-dark: 126 34 206; --on-brand: 255 255 255;
+  --star: 251 191 36; --star-soft: 58 45 20;
+  --ok: 52 211 153; --ok-soft: 16 52 44;
+  --review: 167 139 250; --review-soft: 40 32 78;
+  --warn: 251 113 133; --warn-soft: 62 24 38;
+  --glow1: 147 51 234; --glow2: 236 72 153;
+  --shadow-card: 0 10px 30px -12px rgb(0 0 0 / .6);
+  --shadow-glow: 0 0 24px -4px rgb(147 51 234 / .55);
+}
+[data-theme='turquoise'] {
+  color-scheme: dark;
+  --bg: 5 13 19; --surface: 13 29 40; --ink: 225 248 251;
+  --brand: 6 182 212; --brand-soft: 11 46 58; --brand-dark: 8 145 178; --on-brand: 3 20 28;
+  --star: 251 191 36; --star-soft: 56 46 20;
+  --ok: 52 211 153; --ok-soft: 14 52 44;
+  --review: 125 160 250; --review-soft: 24 36 78;
+  --warn: 251 113 133; --warn-soft: 60 24 36;
+  --glow1: 6 182 212; --glow2: 59 130 246;
+  --shadow-card: 0 10px 30px -12px rgb(0 0 0 / .6);
+  --shadow-glow: 0 0 24px -4px rgb(6 182 212 / .5);
+}
+[data-theme='gold'] {
+  color-scheme: light;
+  --bg: 250 246 238; --surface: 255 253 248; --ink: 43 34 20;
+  --brand: 161 112 18; --brand-soft: 247 236 210; --brand-dark: 124 84 8; --on-brand: 255 255 255;
+  --star: 196 108 4; --star-soft: 254 240 205;
+  --ok: 21 128 90; --ok-soft: 220 243 232;
+  --review: 109 79 200; --review-soft: 237 231 252;
+  --warn: 200 40 60; --warn-soft: 253 228 230;
+  --glow1: 232 190 110; --glow2: 245 222 179;
+  --shadow-card: 0 10px 28px -14px rgb(120 84 8 / .35);
+  --shadow-glow: 0 0 22px -6px rgb(201 150 40 / .5);
+}
+[data-theme='blue'] {
+  color-scheme: light;
+  --bg: 243 248 255; --surface: 255 255 255; --ink: 15 23 42;
+  --brand: 37 99 235; --brand-soft: 222 235 255; --brand-dark: 29 78 216; --on-brand: 255 255 255;
+  --star: 196 108 4; --star-soft: 254 240 205;
+  --ok: 21 128 90; --ok-soft: 220 243 232;
+  --review: 109 79 200; --review-soft: 237 231 252;
+  --warn: 200 40 60; --warn-soft: 253 228 230;
+  --glow1: 96 165 250; --glow2: 34 211 238;
+  --shadow-card: 0 10px 28px -14px rgb(30 64 175 / .3);
+  --shadow-glow: 0 0 22px -6px rgb(37 99 235 / .45);
+}
 
 html, body, #root { height: 100%; }
 body {
-  @apply bg-paper text-ink font-sans antialiased;
+  @apply bg-paper font-sans text-ink antialiased;
+  background-image:
+    radial-gradient(60% 40% at 15% -5%, rgb(var(--glow1) / .22), transparent 70%),
+    radial-gradient(50% 35% at 100% 10%, rgb(var(--glow2) / .14), transparent 70%);
+  background-attachment: fixed;
+  font-size: 16px; line-height: 1.5;
   padding-top: env(safe-area-inset-top);
   padding-bottom: env(safe-area-inset-bottom);
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior-y: none;
 }
-
 button, a { touch-action: manipulation; }
-button:focus-visible, a:focus-visible, [role='button']:focus-visible {
-  outline: 3px solid rgba(79, 70, 229, 0.45);
-  outline-offset: 2px;
+button:focus-visible, a:focus-visible, [role='button']:focus-visible, input:focus-visible {
+  outline: 2px solid rgb(var(--brand) / .8); outline-offset: 2px;
 }
 
+/* ===== БАЗОВЫЕ КОМПОНЕНТЫ (единые размеры: контролы 48px, радиус 14px, карточки 20px) ===== */
 @layer components {
   .btn {
-    @apply inline-flex min-h-[52px] items-center justify-center gap-2 rounded-2xl px-6 text-base font-semibold
-           transition active:scale-[0.97] disabled:opacity-50 disabled:active:scale-100;
+    @apply inline-flex min-h-[48px] items-center justify-center gap-2 rounded-ctl px-5 text-[15px] font-semibold
+           leading-none transition duration-fast active:scale-[0.97] disabled:opacity-50 disabled:active:scale-100;
   }
-  .btn-primary { @apply btn bg-brand text-white shadow-card hover:bg-brand-dark; }
-  .btn-soft { @apply btn bg-brand-soft text-brand; }
-  .btn-danger { @apply btn bg-warn-soft text-warn; }
-  .card { @apply rounded-card bg-white p-4 shadow-card; }
+  .btn-primary { @apply btn bg-brand text-on-brand shadow-glow hover:bg-brand-dark; }
+  .btn-soft { @apply btn border border-brand/25 bg-brand-soft text-brand hover:border-brand/50; }
+  .btn-danger { @apply btn border border-warn/25 bg-warn-soft text-warn; }
+  .btn-icon { @apply inline-flex h-11 w-11 items-center justify-center rounded-full border border-ink/10 bg-surface/70 backdrop-blur-md transition duration-fast active:scale-95; }
+  /* стекло: полупрозрачность + blur + тонкая граница */
+  .glass { @apply border border-ink/10 bg-surface/60 shadow-card backdrop-blur-xl; }
+  .card { @apply rounded-card border border-ink/10 bg-surface/70 p-4 shadow-card backdrop-blur-xl; }
   .input {
-    @apply min-h-[52px] w-full rounded-2xl border border-ink/10 bg-white px-4 text-base outline-none
-           focus:border-brand focus:ring-2 focus:ring-brand/20;
+    @apply min-h-[48px] w-full rounded-ctl border border-ink/15 bg-surface/80 px-4 text-[16px] text-ink outline-none
+           transition duration-fast placeholder:text-ink/40 focus:border-brand focus:ring-2 focus:ring-brand/25;
   }
+  .skeleton { @apply animate-pulse rounded-card bg-ink/10; }
 }
 
 @media (prefers-reduced-motion: reduce) {

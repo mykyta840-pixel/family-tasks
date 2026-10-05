@@ -1,26 +1,51 @@
-// Превращает технические ошибки в понятный русский текст
-const MAP: Record<string, string> = {
-  'Invalid login credentials': 'Неверная почта или пароль.',
-  'User already registered': 'Эта почта уже зарегистрирована. Войдите.',
-  'Email not confirmed': 'Почта не подтверждена. Проверьте письмо.',
-  invalid_code: 'Код не подошёл. Проверьте его или попросите новый.',
-  already_in_family: 'Вы уже состоите в семье.',
-  not_allowed: 'Нет прав на это действие.',
-  not_pending: 'Это уже обработано.',
-  already_submitted: 'Задание уже отправлено на проверку.',
-  already_requested: 'Заявка на эту награду уже отправлена.',
-  not_enough_points: 'Не хватает баллов.',
+import { ruT, type TFn } from '../i18n/ruT'
+
+// Техническая подстрока в ошибке -> ключ перевода (первое совпадение выигрывает)
+const RULES: [string, string][] = [
+  ['Invalid login credentials', 'err.invalidLogin'],
+  ['User already registered', 'err.alreadyRegistered'],
+  ['Email not confirmed', 'err.emailNotConfirmed'],
+  ['Database error saving new user', 'err.dbSaveUser'],
+  ['Password should contain', 'err.weakPassword'],
+  ['rate limit', 'err.rateLimit'],
+  ['Signups not allowed', 'err.signupsOff'],
+  ['Invalid API key', 'err.badKey'],
+  ['invalid_code', 'err.invalidCode'],
+  ['already_in_family', 'err.alreadyInFamily'],
+  ['not_allowed', 'err.notAllowed'],
+  ['not_pending', 'err.notPending'],
+  ['already_submitted', 'err.alreadySubmitted'],
+  ['already_requested', 'err.alreadyRequested'],
+  ['not_enough_points', 'err.notEnoughPoints'],
+  ['bad_image', 'err.badImage'],
+  ['remind_too_soon', 'err.remindTooSoon'],
+]
+
+function messageOf(err: unknown): string {
+  return err instanceof Error
+    ? err.message
+    : typeof err === 'object' && err && 'message' in err
+      ? String((err as { message: unknown }).message)
+      : String(err)
 }
 
-export function humanError(err: unknown): string {
-  const msg =
-    err instanceof Error
-      ? err.message
-      : typeof err === 'object' && err && 'message' in err
-        ? String((err as { message: unknown }).message)
-        : String(err)
-  for (const key of Object.keys(MAP)) if (msg.includes(key)) return MAP[key]
-  if (/password/i.test(msg) && /(6|short|weak)/i.test(msg)) return 'Пароль должен быть не короче 6 символов.'
-  if (/fetch|network|failed to/i.test(msg)) return 'Нет связи с интернетом. Попробуйте ещё раз.'
-  return 'Что-то пошло не так. Попробуйте ещё раз.'
+export function errorKey(err: unknown): string {
+  const msg = messageOf(err)
+  for (const [part, key] of RULES) if (msg.includes(part)) return key
+  if (/password/i.test(msg) && /(6|short|weak)/i.test(msg)) return 'err.shortPassword'
+  if (/fetch|network|failed to/i.test(msg)) return 'err.network'
+  return 'err.unknown'
+}
+
+// Превращает техническую ошибку в понятный текст на языке интерфейса.
+// Без второго аргумента отвечает по-русски (так работают тесты).
+export function humanError(err: unknown, t: TFn = ruT): string {
+  return t(errorKey(err))
+}
+
+// Техническая причина: мелким текстом под ошибкой, чтобы её можно было прислать разработчику
+export function errorDetail(err: unknown): string {
+  const msg = err == null ? '' : messageOf(err)
+  const status = typeof err === 'object' && err && 'status' in err ? ` [${String((err as { status: unknown }).status)}]` : ''
+  return msg && msg !== 'undefined' ? `${msg}${status}` : ''
 }

@@ -1,5 +1,6 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { supabase } from '../lib/supabase'
+import { useI18n } from '../i18n'
 import type { Child, Task } from '../lib/tasks'
 import type { Redemption, Reward, Txn } from '../lib/rewards'
 
@@ -37,6 +38,10 @@ export function FamilyDataProvider({ familyId, children: content }: { familyId: 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [now, setNow] = useState(() => Date.now())
+  // Текст ошибки берём из актуального языка, не пересоздавая load при смене языка
+  const { t: tr } = useI18n()
+  const trRef = useRef(tr)
+  trRef.current = tr
 
   useEffect(() => {
     const t = window.setInterval(() => setNow(Date.now()), 60000)
@@ -53,7 +58,7 @@ export function FamilyDataProvider({ familyId, children: content }: { familyId: 
       supabase.from('points_transactions').select('id, child_id, amount, kind, title, created_at').eq('family_id', familyId).order('created_at', { ascending: false }).limit(100),
     ])
     if (t.error || m.error || b.error || rw.error || rd.error || tx.error) {
-      setError('Не удалось обновить данные. Проверьте интернет.')
+      setError(trRef.current('data.refreshFailed'))
       setLoading(false)
       return
     }

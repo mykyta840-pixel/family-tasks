@@ -1,23 +1,27 @@
 /** @type {import('tailwindcss').Config} */
+const c = (v) => `rgb(var(--${v}) / <alpha-value>)`
 export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
     extend: {
       colors: {
-        ink: '#1E1B4B',        // основной тёмный текст
-        brand: { DEFAULT: '#4F46E5', soft: '#EEF0FF', dark: '#3730A3' },
-        star: { DEFAULT: '#F5A524', soft: '#FFF4DB' },   // баллы
-        ok: { DEFAULT: '#1FA971', soft: '#DDF6EA' },     // подтверждено
-        review: { DEFAULT: '#8B5CF6', soft: '#EFE8FF' }, // на проверке
-        warn: { DEFAULT: '#E5484D', soft: '#FDE8E9' },   // отклонено / ошибка
-        paper: '#F5F6FB',
+        ink: c('ink'),
+        paper: c('bg'),
+        surface: c('surface'),
+        'on-brand': c('on-brand'),
+        brand: { DEFAULT: c('brand'), soft: c('brand-soft'), dark: c('brand-dark') },
+        star: { DEFAULT: c('star'), soft: c('star-soft') },
+        ok: { DEFAULT: c('ok'), soft: c('ok-soft') },
+        review: { DEFAULT: c('review'), soft: c('review-soft') },
+        warn: { DEFAULT: c('warn'), soft: c('warn-soft') },
       },
       fontFamily: {
         sans: ['Onest', 'system-ui', 'sans-serif'],
         display: ['Unbounded', 'Onest', 'system-ui', 'sans-serif'],
       },
-      borderRadius: { card: '22px' },
-      boxShadow: { card: '0 6px 24px -10px rgba(30,27,75,0.25)' },
+      borderRadius: { card: '20px', ctl: '14px' },
+      boxShadow: { card: 'var(--shadow-card)', glow: 'var(--shadow-glow)' },
+      transitionDuration: { fast: '120ms', base: '200ms' },
     },
   },
   plugins: [],

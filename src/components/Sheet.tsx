@@ -21,7 +21,7 @@ export default function Sheet({ open, onClose, children }: { open: boolean; onCl
     <AnimatePresence>
       {open && (
         <motion.div
-          className="fixed inset-0 z-30 flex items-end justify-center bg-ink/40"
+          className="fixed inset-0 z-30 flex items-end justify-center bg-black/55 backdrop-blur-sm"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -30,7 +30,7 @@ export default function Sheet({ open, onClose, children }: { open: boolean; onCl
           <motion.div
             role="dialog"
             aria-modal="true"
-            className="max-h-[90%] w-full max-w-md overflow-y-auto overscroll-contain rounded-t-[28px] bg-paper p-5"
+            className="max-h-[90%] w-full max-w-md overflow-y-auto overscroll-contain rounded-t-[28px] border-t border-ink/10 bg-paper p-5 shadow-card"
             style={{ paddingBottom: 'calc(1.25rem + env(safe-area-inset-bottom))' }}
             initial={{ y: '100%' }}
             animate={{ y: 0 }}

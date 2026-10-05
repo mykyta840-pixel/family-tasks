@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useState, type React
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import type { Family, Profile, Role } from '../lib/types'
+import { detachDevice } from '../lib/push'
 
 interface AuthState {
   session: Session | null
@@ -48,7 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return
     }
     const [p, m] = await Promise.all([
-      supabase.from('profiles').select('id, display_name, avatar_url, bio').eq('id', uid).maybeSingle(),
+      supabase.from('profiles').select('id, display_name, avatar_url, bio, language').eq('id', uid).maybeSingle(),
       supabase.from('family_members').select('role, family:families(id, name)').eq('user_id', uid).maybeSingle(),
     ])
     if (p.error || m.error) return // при сбое сети оставляем прежние данные
@@ -87,6 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loading: !ready || (uid !== null && loadedFor !== uid),
     refresh: load,
     signOut: async () => {
+      await detachDevice().catch(() => undefined) // устройство больше не получает push этого аккаунта
       await supabase.auth.signOut()
     },
   }

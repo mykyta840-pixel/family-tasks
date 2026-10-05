@@ -1,18 +1,20 @@
 import { NavLink } from 'react-router-dom'
 import { Gift, Home, ListChecks, Users } from 'lucide-react'
 import { useAuth } from '../auth/AuthProvider'
+import { useI18n } from '../i18n'
 
 export default function BottomNav() {
   const { role } = useAuth()
+  const { t } = useI18n()
   const items = [
-    { to: '/', label: 'Главная', icon: Home, end: true },
-    ...(role === 'parent' ? [{ to: '/tasks', label: 'Задания', icon: ListChecks, end: false }] : []),
-    { to: '/rewards', label: 'Награды', icon: Gift, end: false },
-    { to: '/family', label: 'Семья', icon: Users, end: false },
+    { to: '/', label: t('nav.home'), icon: Home, end: true },
+    ...(role === 'parent' ? [{ to: '/tasks', label: t('nav.tasks'), icon: ListChecks, end: false }] : []),
+    { to: '/rewards', label: t('nav.rewards'), icon: Gift, end: false },
+    { to: '/family', label: t('nav.family'), icon: Users, end: false },
   ]
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-10 border-t border-ink/10 bg-white/95 backdrop-blur"
+      className="fixed inset-x-0 bottom-0 z-10 border-t border-ink/10 bg-surface/80 backdrop-blur-xl"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
       <div className="mx-auto flex max-w-md">
@@ -22,7 +24,7 @@ export default function BottomNav() {
             to={to}
             end={end}
             className={({ isActive }) =>
-              `flex min-h-[60px] flex-1 flex-col items-center justify-center gap-1 text-xs font-semibold ${
+              `flex min-h-[64px] flex-1 flex-col items-center justify-center gap-1 text-[11px] font-semibold ${
                 isActive ? 'text-brand' : 'text-ink/50'
               }`
             }

@@ -1,11 +1,15 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { isConfigured } from './lib/supabase'
+import { hideSplash } from './lib/splash'
+import { useEffect } from 'react'
 import { AuthProvider, useAuth } from './auth/AuthProvider'
+import { isLang, useI18n } from './i18n'
 import { FamilyDataProvider } from './data/FamilyData'
 import { NotificationsProvider } from './data/Notifications'
 import ConfigMissing from './components/ConfigMissing'
 import Shell from './components/Shell'
 import ErrorBoundary from './components/ErrorBoundary'
+import PushBridge from './components/PushBridge'
 import Auth from './pages/Auth'
 import Onboarding from './pages/Onboarding'
 import FamilyHome from './pages/FamilyHome'
@@ -18,8 +22,22 @@ import ParentRewards from './pages/ParentRewards'
 import History from './pages/History'
 import Profile from './pages/Profile'
 
+// Язык, сохранённый в профиле, перекрывает локальный выбор (ребёнку язык выбирает родитель)
+function LanguageSync() {
+  const { profile } = useAuth()
+  const { setForced } = useI18n()
+  const saved = profile?.language
+  useEffect(() => {
+    setForced(isLang(saved) ? saved : null)
+  }, [saved, setForced])
+  return null
+}
+
 function Gate() {
   const { session, family, role, loading } = useAuth()
+  useEffect(() => {
+    if (!loading) hideSplash()
+  }, [loading])
   if (loading) {
     return (
       <div className="grid min-h-full place-items-center">
@@ -33,6 +51,7 @@ function Gate() {
   return (
     <FamilyDataProvider familyId={family.id}>
       <NotificationsProvider userId={session.user.id}>
+      <PushBridge userId={session.user.id} />
       <Shell>
         <Routes>
           <Route path="/" element={parent ? <ParentDashboard /> : <ChildHome />} />
@@ -52,11 +71,15 @@ function Gate() {
 }
 
 export default function App() {
+  useEffect(() => {
+    if (!isConfigured) hideSplash()
+  }, [])
   if (!isConfigured) return <ConfigMissing />
   return (
     <ErrorBoundary>
       <BrowserRouter>
         <AuthProvider>
+          <LanguageSync />
           <Gate />
         </AuthProvider>
       </BrowserRouter>

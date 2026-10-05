@@ -1,3 +1,5 @@
+import { ruT } from '../i18n/ruT'
+
 export type TaskStatus = 'todo' | 'submitted' | 'approved' | 'rejected'
 export type Repeat = 'none' | 'daily' | 'weekdays' | 'weekly' | 'custom'
 
@@ -14,7 +16,18 @@ export interface Task {
   priority: 0 | 1
   status: TaskStatus
   reject_reason: string | null
+  image_url?: string | null // картинка задания (bucket task-images)
   created_at: string
+}
+
+// Путь файла внутри bucket task-images по публичной ссылке (нужен для удаления файла)
+export function taskImagePath(url: string | null | undefined): string | null {
+  if (!url) return null
+  const marker = '/task-images/'
+  const i = url.indexOf(marker)
+  if (i < 0) return null
+  const path = decodeURIComponent(url.slice(i + marker.length).split('?')[0])
+  return path || null
 }
 
 export interface Child {
@@ -35,12 +48,13 @@ export function viewOf(t: Task, now = Date.now()): View {
   return 'new'
 }
 
-export const STATUS_UI: Record<View, { label: string; dot: string; cls: string }> = {
-  new: { label: 'Новое', dot: '🟡', cls: 'bg-star-soft text-star' },
-  submitted: { label: 'На проверке', dot: '🟣', cls: 'bg-review-soft text-review' },
-  approved: { label: 'Подтверждено', dot: '🟢', cls: 'bg-ok-soft text-ok' },
-  rejected: { label: 'Отклонено', dot: '🔴', cls: 'bg-warn-soft text-warn' },
-  overdue: { label: 'Просрочено', dot: '⚪', cls: 'bg-ink/10 text-ink/70' },
+// Цвета статусов; подписи берутся из переводов (status.*)
+export const STATUS_UI: Record<View, { cls: string }> = {
+  new: { cls: 'bg-star-soft text-star' },
+  submitted: { cls: 'bg-review-soft text-review' },
+  approved: { cls: 'bg-ok-soft text-ok' },
+  rejected: { cls: 'bg-warn-soft text-warn' },
+  overdue: { cls: 'bg-ink/10 text-ink/70' },
 }
 
 const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
@@ -50,26 +64,15 @@ export function dayDiff(iso: string): number {
   return Math.round((startOfDay(new Date(iso)) - startOfDay(new Date())) / 86400000)
 }
 
+// Срок по-русски (для тестов и мест без хука); в интерфейсе используется formatDueI18n
 export function formatDue(iso: string | null): string {
-  if (!iso) return 'Без срока'
-  const d = new Date(iso)
-  const time = d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
-  const diff = dayDiff(iso)
-  if (diff === 0) return `Сегодня, ${time}`
-  if (diff === 1) return `Завтра, ${time}`
-  if (diff === -1) return `Вчера, ${time}`
-  return `${d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}, ${time}`
+  return formatDueI18n(iso, 'ru', ruT)
 }
 
 export type Filter = 'today' | 'upcoming' | 'review' | 'done' | 'overdue'
 
-export const FILTERS: { key: Filter; label: string }[] = [
-  { key: 'today', label: 'Сегодня' },
-  { key: 'upcoming', label: 'Предстоящие' },
-  { key: 'review', label: 'На проверке' },
-  { key: 'done', label: 'Выполненные' },
-  { key: 'overdue', label: 'Просроченные' },
-]
+// Порядок вкладок; подписи берутся из переводов (filter.*)
+export const FILTERS: { key: Filter }[] = [{ key: 'today' }, { key: 'upcoming' }, { key: 'review' }, { key: 'done' }, { key: 'overdue' }]
 
 export function matchesFilter(t: Task, f: Filter): boolean {
   const v = viewOf(t)
@@ -86,10 +89,17 @@ export function toLocalInput(iso: string): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`
 }
 
-export function greeting(): string {
-  const h = new Date().getHours()
-  if (h < 5) return 'Доброй ночи'
-  if (h < 12) return 'Доброе утро'
-  if (h < 18) return 'Добрый день'
-  return 'Добрый вечер'
+const LOCALE: Record<string, string> = { en: 'en-GB', de: 'de-DE', ru: 'ru-RU', uk: 'uk-UA' }
+
+// Дата срока на языке интерфейса
+export function formatDueI18n(iso: string | null, lang: string, t: (k: string) => string): string {
+  if (!iso) return t('date.none')
+  const loc = LOCALE[lang] ?? 'en-GB'
+  const d = new Date(iso)
+  const time = d.toLocaleTimeString(loc, { hour: '2-digit', minute: '2-digit' })
+  const diff = dayDiff(iso)
+  if (diff === 0) return `${t('date.today')}, ${time}`
+  if (diff === 1) return `${t('date.tomorrow')}, ${time}`
+  if (diff === -1) return `${t('date.yesterday')}, ${time}`
+  return `${d.toLocaleDateString(loc, { day: 'numeric', month: 'short' })}, ${time}`
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { humanError } from '../errors'
+import { errorDetail, errorKey, humanError } from '../errors'
 
 describe('humanError', () => {
   it('известные коды из базы', () => {
@@ -31,5 +31,35 @@ describe('humanError', () => {
 
   it('код внутри длинного сообщения тоже находится', () => {
     expect(humanError({ message: 'P0001: not_allowed (context)' })).toBe('Нет прав на это действие.')
+  })
+})
+
+describe('новые правила и переводы', () => {
+  it('простой пароль, лимит попыток, ошибка базы, отключённая регистрация', () => {
+    expect(humanError(new Error('Password should contain at least one character of each'))).toContain('слишком простой')
+    expect(humanError(new Error('email rate limit exceeded'))).toContain('Слишком много')
+    expect(humanError(new Error('Database error saving new user'))).toContain('профиль')
+    expect(humanError(new Error('Signups not allowed for this instance'))).toContain('отключена')
+    expect(humanError(new Error('Invalid API key'))).toContain('ключ')
+  })
+
+  it('ошибка чтения фото из lib/avatar', () => {
+    expect(humanError(new Error('bad_image'))).toContain('Не удалось прочитать фото')
+  })
+
+  it('errorKey отдаёт ключ перевода', () => {
+    expect(errorKey(new Error('not_enough_points'))).toBe('err.notEnoughPoints')
+    expect(errorKey(null)).toBe('err.unknown')
+  })
+
+  it('второй аргумент подставляет другой язык', () => {
+    const en = (k: string) => `EN:${k}`
+    expect(humanError(new Error('invalid_code'), en)).toBe('EN:err.invalidCode')
+  })
+
+  it('errorDetail отдаёт исходный текст и код', () => {
+    expect(errorDetail({ message: 'boom', status: 500 })).toBe('boom [500]')
+    expect(errorDetail(null)).toBe('')
+    expect(errorDetail(undefined)).toBe('')
   })
 })

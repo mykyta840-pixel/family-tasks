@@ -5,6 +5,7 @@ export interface Profile {
   display_name: string
   avatar_url: string | null
   bio: string | null
+  language?: string | null
 }
 
 export interface Family {

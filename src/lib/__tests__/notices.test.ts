@@ -34,3 +34,11 @@ describe('noticeLink', () => {
     expect(noticeLink(n('task_submitted'))).toBe('/')
   })
 })
+
+describe('ago на другом языке', () => {
+  it('использует переданный переводчик', () => {
+    const t = (k: string, v?: Record<string, string | number>) => `${k}:${v?.n ?? ''}`
+    expect(ago(at(5 * MIN), base, t)).toBe('ago.min:5')
+    expect(ago(at(10_000), base, t)).toBe('ago.now:')
+  })
+})

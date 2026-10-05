@@ -7,7 +7,7 @@ export default function Avatar({ name, url, size = 48 }: { name: string; url?: s
   const color = COLORS[[...name].reduce((sum, ch) => sum + ch.charCodeAt(0), 0) % COLORS.length]
   return (
     <div
-      className="grid shrink-0 place-items-center rounded-full font-display font-semibold text-white"
+      className="grid shrink-0 place-items-center rounded-full font-display font-semibold text-on-brand"
       style={{ width: size, height: size, background: color, fontSize: size * 0.4 }}
     >
       {(name[0] ?? '?').toUpperCase()}
