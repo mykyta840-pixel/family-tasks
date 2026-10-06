@@ -1,6 +1,6 @@
 import { useMemo, useState, type FormEvent } from 'react'
-import { motion } from 'framer-motion'
-import { CheckCircle2, EyeOff, Gift, Hourglass, Loader2, Plus, Star, Trash2, X, XCircle } from 'lucide-react'
+import { CheckCircle2, Gift, Hourglass, Loader2, Plus, Trash2, X, XCircle } from 'lucide-react'
+import Coin from '../components/Coin'
 import { supabase } from '../lib/supabase'
 import { humanError } from '../lib/errors'
 import { useAuth } from '../auth/AuthProvider'
@@ -8,7 +8,12 @@ import { useFamilyData } from '../data/FamilyData'
 import { useOnline } from '../hooks/useOnline'
 import { useI18n } from '../i18n'
 import RewardIcon from '../components/RewardIcon'
-import { ICONS, REDEMPTION_UI, formatWhenI18n, type Reward } from '../lib/rewards'
+import RewardIconPicker from '../components/RewardIconPicker'
+import RewardGridCard from '../components/RewardGridCard'
+import RewardDetailSheet from '../components/RewardDetailSheet'
+import { deleteReward } from '../lib/rewardActions'
+import { resolveRewardIcon, type RewardIconKey } from '../lib/rewardIconKeys'
+import { REDEMPTION_UI, formatWhenI18n, type Reward } from '../lib/rewards'
 import type { Child } from '../lib/tasks'
 import Avatar from '../components/Avatar'
 import Sheet from '../components/Sheet'
@@ -28,7 +33,7 @@ function RewardEditor({ reward, onClose }: { reward?: Reward; onClose: () => voi
   const online = useOnline()
   const { family, session } = useAuth()
   const { reload } = useFamilyData()
-  const [icon, setIcon] = useState(reward?.icon ?? '🎁')
+  const [icon, setIcon] = useState<RewardIconKey>(resolveRewardIcon(reward?.icon))
   const [title, setTitle] = useState(reward?.title ?? '')
   const [description, setDescription] = useState(reward?.description ?? '')
   const [cost, setCost] = useState(String(reward?.cost ?? 50))
@@ -60,9 +65,10 @@ function RewardEditor({ reward, onClose }: { reward?: Reward; onClose: () => voi
   async function remove() {
     if (!reward || busy || !online) return
     setBusy(true)
-    const { error } = await supabase.from('rewards').delete().eq('id', reward.id)
-    if (error) {
-      setError(humanError(error, t))
+    try {
+      await deleteReward(reward.id)
+    } catch (e) {
+      setError(humanError(e, t))
       setBusy(false)
       return
     }
@@ -81,21 +87,7 @@ function RewardEditor({ reward, onClose }: { reward?: Reward; onClose: () => voi
 
       <div className="flex flex-col gap-2">
         <span className={LABEL}>{t('rew.icon')}</span>
-        <div className="flex flex-wrap gap-2">
-          {ICONS.map((i) => (
-            <button
-              key={i}
-              type="button"
-              aria-pressed={icon === i}
-              onClick={() => setIcon(i)}
-              className={`grid h-12 w-12 place-items-center rounded-ctl border transition duration-fast active:scale-95 ${
-                icon === i ? 'border-brand bg-brand-soft text-brand shadow-glow' : 'border-ink/10 bg-surface/70 text-ink/70'
-              }`}
-            >
-              <RewardIcon icon={i} size={22} />
-            </button>
-          ))}
-        </div>
+        <RewardIconPicker value={icon} onChange={setIcon} />
       </div>
 
       <input className="input" placeholder={t('rew.titlePh')} value={title} onChange={(e) => setTitle(e.target.value)} required maxLength={80} aria-label={t('form.name')} />
@@ -106,7 +98,7 @@ function RewardEditor({ reward, onClose }: { reward?: Reward; onClose: () => voi
         <div className="flex flex-wrap items-center gap-2">
           {COSTS.map((c) => (
             <button key={c} type="button" aria-pressed={cost === String(c)} onClick={() => setCost(String(c))} className={chip(cost === String(c))}>
-              <Star size={14} fill="currentColor" aria-hidden /> {c}
+              <Coin size={14} /> {c}
             </button>
           ))}
           <input className="input w-28" type="number" inputMode="numeric" min={1} max={100000} value={cost} onChange={(e) => setCost(e.target.value)} aria-label={t('rew.cost')} />
@@ -152,8 +144,10 @@ export default function ParentRewards() {
   const { t, lang } = useI18n()
   const { rewards, redemptions, children, loading, reload } = useFamilyData()
   const [editing, setEditing] = useState<Reward | 'new' | null>(null)
+  const [openId, setOpenId] = useState<string | null>(null)
   const byId = useMemo(() => new Map<string, Child>(children.map((c) => [c.id, c] as [string, Child])), [children])
   const pending = redemptions.filter((r) => r.status === 'pending')
+  const opened = rewards.find((r) => r.id === openId) ?? null // удалили на другом телефоне — окно закроется само
   const recent = redemptions.filter((r) => r.status !== 'pending').slice(0, 5)
 
   return (
@@ -182,7 +176,7 @@ export default function ParentRewards() {
                     </div>
                   </div>
                   <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-star-soft px-3 py-1 font-display font-semibold text-star">
-                    <Star size={14} fill="currentColor" aria-hidden /> {r.cost}
+                    <Coin size={14} /> {r.cost}
                   </span>
                 </div>
                 <RedemptionActions id={r.id} onDone={() => void reload()} />
@@ -194,7 +188,7 @@ export default function ParentRewards() {
 
       <h2 className="px-1 text-sm font-semibold uppercase tracking-wide text-ink/60">{t('rew.shop')}</h2>
       {loading ? (
-        [0, 1, 2].map((i) => <div key={i} className="skeleton h-20" />)
+        <div className="grid grid-cols-2 gap-3">{[0, 1, 2, 3].map((i) => <div key={i} className="skeleton aspect-square min-h-[168px]" />)}</div>
       ) : rewards.length === 0 ? (
         <div className="glass flex flex-col items-center gap-3 rounded-card p-6 text-center">
           <div className="grid h-14 w-14 place-items-center rounded-2xl bg-brand-soft text-brand">
@@ -206,39 +200,11 @@ export default function ParentRewards() {
           </button>
         </div>
       ) : (
-        rewards.map((r, i) => (
-          <motion.div
-            key={r.id}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.22, delay: Math.min(i, 6) * 0.03 }}
-            role="button"
-            tabIndex={0}
-            onClick={() => setEditing(r)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault()
-                setEditing(r)
-              }
-            }}
-            className={`card flex cursor-pointer items-center gap-3 ${r.active ? '' : 'opacity-70'}`}
-          >
-            <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-brand/25 bg-brand-soft text-brand">
-              <RewardIcon icon={r.icon} size={24} />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="truncate font-semibold">{r.title}</div>
-              {!r.active && (
-                <div className="mt-0.5 inline-flex items-center gap-1 text-sm text-ink/50">
-                  <EyeOff size={14} aria-hidden /> {t('rew.hidden')}
-                </div>
-              )}
-            </div>
-            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-star-soft px-3 py-1 font-display font-semibold text-star">
-              <Star size={14} fill="currentColor" aria-hidden /> {r.cost}
-            </span>
-          </motion.div>
-        ))
+        <div className="grid grid-cols-2 gap-3">
+          {rewards.map((r, i) => (
+            <RewardGridCard key={r.id} reward={r} index={i} onOpen={() => setOpenId(r.id)} />
+          ))}
+        </div>
       )}
 
       {recent.length > 0 && (
@@ -265,6 +231,8 @@ export default function ParentRewards() {
           })}
         </>
       )}
+
+      <RewardDetailSheet reward={opened} onClose={() => setOpenId(null)} onEdit={(r) => { setOpenId(null); setEditing(r) }} />
 
       <Sheet open={editing !== null} onClose={() => setEditing(null)}>
         {editing !== null && (

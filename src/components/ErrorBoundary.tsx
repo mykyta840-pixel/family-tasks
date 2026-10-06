@@ -1,6 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { Frown, RefreshCw } from 'lucide-react'
 import { useI18n } from '../i18n'
+import { hideSplash } from '../lib/splash'
 
 // Экран-заглушка (функция, чтобы взять язык через хук)
 function Fallback() {
@@ -29,6 +30,7 @@ export default class ErrorBoundary extends Component<{ children: ReactNode }, { 
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error('Ошибка приложения:', error, info.componentStack)
+    hideSplash(true) // экран ошибки не должен прятаться под заставкой
   }
 
   render() {

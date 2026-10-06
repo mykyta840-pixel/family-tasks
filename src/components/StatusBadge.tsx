@@ -17,3 +17,15 @@ export default function StatusBadge({ view }: { view: View }) {
     </span>
   )
 }
+
+// Компактный значок статуса для маленьких карточек (иконка + цвет; текст для скринридера и подсказки)
+export function StatusChip({ view }: { view: View }) {
+  const { t } = useI18n()
+  const Icon = ICON[view]
+  return (
+    <span title={t(`status.${view}`)} className={`inline-flex h-7 w-7 items-center justify-center rounded-full ${STATUS_UI[view].cls}`}>
+      <Icon size={15} strokeWidth={2.25} aria-hidden />
+      <span className="sr-only">{t(`status.${view}`)}</span>
+    </span>
+  )
+}

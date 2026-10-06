@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { Gift, Home, ListChecks, Users } from 'lucide-react'
+import { Gift, Home, ListChecks, Settings, Users } from 'lucide-react'
 import { useAuth } from '../auth/AuthProvider'
 import { useI18n } from '../i18n'
 
@@ -11,6 +11,7 @@ export default function BottomNav() {
     ...(role === 'parent' ? [{ to: '/tasks', label: t('nav.tasks'), icon: ListChecks, end: false }] : []),
     { to: '/rewards', label: t('nav.rewards'), icon: Gift, end: false },
     { to: '/family', label: t('nav.family'), icon: Users, end: false },
+    { to: '/settings', label: t('nav.settings'), icon: Settings, end: false },
   ]
   return (
     <nav

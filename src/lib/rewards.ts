@@ -6,6 +6,7 @@ export interface Reward {
   icon: string
   cost: number
   active: boolean
+  created_by?: string | null // кто добавил награду (профиль родителя)
 }
 
 export type RedemptionStatus = 'pending' | 'approved' | 'rejected'
@@ -31,8 +32,6 @@ export interface Txn {
   title: string
   created_at: string
 }
-
-export const ICONS = ['🎮', '🍫', '🎬', '🍕', '🍦', '🧸', '🎢', '📱', '🚲', '⚽', '🎨', '🎁']
 
 // Цвета статусов запросов; подписи берутся из переводов (red.*)
 export const REDEMPTION_UI: Record<RedemptionStatus, { cls: string }> = {

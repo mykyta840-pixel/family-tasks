@@ -4,12 +4,13 @@ import { useAuth } from '../auth/AuthProvider'
 import { useI18n } from '../i18n'
 import { useOnline } from '../hooks/useOnline'
 import { humanError } from '../lib/errors'
-import { disablePush, enablePush, getPushState, pushConfigured, sendTestPush, type PushState } from '../lib/push'
+import { PUSH_TEST_DONE_EVENT, disablePush, enablePush, getPushState, pushConfigured, sendTestPush, type PushState } from '../lib/push'
 
 // Карточка «Push-уведомления» в профиле
 export default function PushSettings() {
   const { t } = useI18n()
-  const { session } = useAuth()
+  const { session, profile } = useAuth()
+  const testDone = Boolean(profile?.push_test_done_at) // тест уже проходил (хранится в базе)
   const online = useOnline()
   const uid = session?.user.id ?? ''
   const [state, setState] = useState<PushState | null>(null)
@@ -25,6 +26,33 @@ export default function PushSettings() {
   }, [uid])
 
   if (!pushConfigured) return null
+
+  // Ждём, пока устройство подтвердит получение тестового push (PushBridge сохранит успех в базе)
+  function waitTestDone(ms = 20000): Promise<boolean> {
+    return new Promise((resolve) => {
+      const finish = (ok: boolean) => {
+        window.clearTimeout(timer)
+        window.removeEventListener(PUSH_TEST_DONE_EVENT, onDone)
+        resolve(ok)
+      }
+      const onDone = () => finish(true)
+      const timer = window.setTimeout(() => finish(false), ms)
+      window.addEventListener(PUSH_TEST_DONE_EVENT, onDone)
+    })
+  }
+
+  async function runTest(): Promise<string> {
+    const wait = waitTestDone()
+    let count = 0
+    try {
+      count = await sendTestPush()
+    } catch (e) {
+      void wait // ожидание закончится само по таймеру
+      throw e
+    }
+    if (count <= 0) return t('push.testNone')
+    return (await wait) ? t('push.testPassed') : t('push.testTimeout')
+  }
 
   async function run(kind: 'on' | 'off' | 'test', job: () => Promise<string | void>) {
     if (lock.current) return
@@ -80,13 +108,12 @@ export default function PushSettings() {
             <Check size={18} aria-hidden /> {t('push.on')}
           </p>
           <div className="grid grid-cols-1 gap-2">
-            <button
-              className="btn-soft"
-              disabled={busy !== null || !online}
-              onClick={() => run('test', async () => ((await sendTestPush()) > 0 ? t('push.testSent') : t('push.testNone')))}
-            >
-              {busy === 'test' ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <Send size={18} aria-hidden />} {t('push.test')}
-            </button>
+            {!testDone && (
+              <button className="btn-soft" disabled={busy !== null || !online} onClick={() => run('test', runTest)}>
+                {busy === 'test' ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <Send size={18} aria-hidden />}{' '}
+                {busy === 'test' ? t('push.testWaiting') : t('push.test')}
+              </button>
+            )}
             <button className="btn-danger" disabled={busy !== null || !online} onClick={() => run('off', () => disablePush(uid))}>
               {t('push.disable')}
             </button>

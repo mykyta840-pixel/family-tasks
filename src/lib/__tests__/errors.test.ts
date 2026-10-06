@@ -63,3 +63,11 @@ describe('новые правила и переводы', () => {
     expect(errorDetail(undefined)).toBe('')
   })
 })
+
+describe('этап 3: профиль ребёнка', () => {
+  it('ошибки функции update_child_profile', () => {
+    expect(errorKey({ message: 'bad_name' })).toBe('err.badName')
+    expect(errorKey({ message: 'bad_avatar' })).toBe('err.badImage')
+    expect(humanError(new Error('bad_name'))).toContain('от 1 до 40')
+  })
+})

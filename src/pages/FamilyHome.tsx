@@ -1,25 +1,21 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Baby, Check, Loader2, LogOut, Share2, ShieldCheck, Star, UserPlus, Users } from 'lucide-react'
+import { Baby, Check, Loader2, LogOut, Share2, ShieldCheck, UserPlus, Users } from 'lucide-react'
+import Coin from '../components/Coin'
 import { supabase } from '../lib/supabase'
 import { humanError } from '../lib/errors'
 import { useAuth } from '../auth/AuthProvider'
 import { useFamilyData } from '../data/FamilyData'
-import { LANGS, LOCALES, useI18n, type Lang } from '../i18n'
-import { callRpc } from '../lib/actions'
+import { useI18n } from '../i18n'
 import Avatar from '../components/Avatar'
+import MemberProfileSheet, { type MemberRow as Member } from '../components/MemberProfileSheet'
 import type { Role } from '../lib/types'
-
-interface Member {
-  user_id: string
-  role: Role
-  profiles: { display_name: string; avatar_url: string | null; language: string | null } | null
-}
 
 // Экран «Семья»: участники (с баллами и заданиями детей) и коды приглашения
 export default function FamilyHome() {
   const { t } = useI18n()
-  const { family, role, signOut } = useAuth()
+  const { family, role, signOut, session } = useAuth()
+  const myId = session?.user.id
   const { tasks, children: kids } = useFamilyData()
   const [members, setMembers] = useState<Member[]>([])
   const [loaded, setLoaded] = useState(false)
@@ -27,13 +23,14 @@ export default function FamilyHome() {
   const [busy, setBusy] = useState<Role | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [openId, setOpenId] = useState<string | null>(null) // чей профиль открыт
   const familyId = family?.id
 
   const load = useCallback(async () => {
     if (!familyId) return
     const { data } = await supabase
       .from('family_members')
-      .select('user_id, role, profiles(display_name, avatar_url, language)')
+      .select('user_id, role, profiles(display_name, avatar_url, language, bio)')
       .eq('family_id', familyId)
       .order('joined_at')
     if (data) setMembers(data as unknown as Member[])
@@ -47,6 +44,8 @@ export default function FamilyHome() {
     const channel = supabase
       .channel(`members-${familyId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'family_members', filter: `family_id=eq.${familyId}` }, () => void load())
+      // Кто-то сменил имя, фото или «О себе»: список обновляется сам (доступны только профили своей семьи)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles' }, () => void load())
       .subscribe()
     return () => {
       void supabase.removeChannel(channel)
@@ -59,6 +58,9 @@ export default function FamilyHome() {
   const activeOf = (id: string) => tasks.filter((x) => x.assigned_to === id && (x.status === 'todo' || x.status === 'rejected')).length
   const reviewOf = (id: string) => tasks.filter((x) => x.assigned_to === id && x.status === 'submitted').length
 
+  // Баллы и задания ребёнка видят родители и сам ребёнок (чужому ребёнку они не показываются)
+  const showStats = (m: Member) => m.role === 'child' && (role === 'parent' || m.user_id === myId)
+
   async function createInvite(r: Role) {
     if (busy) return
     setBusy(r)
@@ -68,16 +70,6 @@ export default function FamilyHome() {
     if (error) setError(humanError(error, t))
     else setInvite({ role: r, code: data as string })
     setBusy(null)
-  }
-
-  async function setChildLang(userId: string, l: Lang) {
-    setError(null)
-    try {
-      await callRpc('set_member_language', { p_user: userId, p_lang: l })
-      await load()
-    } catch (e) {
-      setError(humanError(e, t))
-    }
   }
 
   async function share() {
@@ -112,12 +104,14 @@ export default function FamilyHome() {
             const name = m.profiles?.display_name ?? '?'
             const isParent = m.role === 'parent'
             return (
-              <motion.div
+              <motion.button
+                type="button"
                 key={m.user_id}
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.22, delay: Math.min(i, 5) * 0.04 }}
-                className="card flex flex-col gap-3"
+                onClick={() => setOpenId(m.user_id)}
+                className="card flex w-full flex-col gap-3 text-left transition duration-fast active:scale-[0.99]"
               >
                 <div className="flex items-center gap-3">
                   <Avatar name={name} url={m.profiles?.avatar_url} size={48} />
@@ -132,43 +126,19 @@ export default function FamilyHome() {
                       {t(isParent ? 'family.role.parent' : 'family.role.child')}
                     </span>
                   </div>
-                  {!isParent && (
+                  {showStats(m) && (
                     <div className="inline-flex shrink-0 items-center gap-1 rounded-full bg-star-soft px-3 py-1 font-display font-semibold text-star">
-                      <Star size={14} fill="currentColor" aria-hidden /> {balanceOf(m.user_id)}
+                      <Coin size={14} /> {balanceOf(m.user_id)}
                     </div>
                   )}
                 </div>
-                {!isParent && (
+                {showStats(m) && (
                   <div className="flex items-center justify-between border-t border-ink/10 pt-3 text-sm text-ink/60">
                     <span>{t('family.active', { n: activeOf(m.user_id) })}</span>
                     <span>{t('family.review', { n: reviewOf(m.user_id) })}</span>
                   </div>
                 )}
-                {!isParent && role === 'parent' && (
-                  <div className="flex flex-col gap-2 border-t border-ink/10 pt-3">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-ink/60">{t('family.childLang')}</span>
-                    <div role="radiogroup" aria-label={t('family.childLang')} className="grid grid-cols-4 gap-1.5">
-                      {LANGS.map((l) => (
-                        <button
-                          key={l}
-                          type="button"
-                          role="radio"
-                          aria-checked={m.profiles?.language === l}
-                          aria-label={LOCALES[l].name}
-                          title={LOCALES[l].name}
-                          onClick={() => void setChildLang(m.user_id, l)}
-                          className={`flex min-h-[44px] items-center justify-center gap-1 rounded-ctl border text-sm font-semibold uppercase transition duration-fast active:scale-95 ${
-                            m.profiles?.language === l ? 'border-brand bg-brand-soft text-brand' : 'border-ink/10 bg-surface/70 text-ink/70'
-                          }`}
-                        >
-                          <span aria-hidden>{LOCALES[l].flag}</span>
-                          {l}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </motion.div>
+              </motion.button>
             )
           })
         )}
@@ -215,6 +185,8 @@ export default function FamilyHome() {
           )}
         </section>
       )}
+
+      <MemberProfileSheet member={members.find((m) => m.user_id === openId) ?? null} onClose={() => setOpenId(null)} onChanged={load} />
 
       <button onClick={signOut} className="btn-danger w-full">
         <LogOut size={18} aria-hidden /> {t('family.signOut')}

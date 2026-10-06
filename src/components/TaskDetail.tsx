@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
-import { CalendarClock, CheckCircle2, Loader2, Repeat, Star, X } from 'lucide-react'
+import { CalendarClock, CheckCircle2, Loader2, Repeat, X } from 'lucide-react'
+import Coin from './Coin'
 import Sheet from './Sheet'
 import StatusBadge from './StatusBadge'
-import { TaskImage } from './NoteCard'
+import TaskVisual from './TaskVisual'
+import CreatedBy from './CreatedBy'
 import { callRpc } from '../lib/actions'
 import { humanError } from '../lib/errors'
 import { formatDueI18n, viewOf, type Task } from '../lib/tasks'
+import { isFutureDay } from '../lib/calendar'
 import { useOnline } from '../hooks/useOnline'
 import { useI18n } from '../i18n'
 
@@ -42,7 +45,8 @@ export default function TaskDetail({ task, onClose, onDone }: { task: Task | nul
   }
 
   const view = shown ? viewOf(shown) : 'new'
-  const canDo = view === 'new' || view === 'overdue' || view === 'rejected'
+  const future = !!shown && isFutureDay(shown.due_at)
+  const canDo = (view === 'new' || view === 'overdue' || view === 'rejected') && !future
   const Chip = ({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) => (
     <div className="rounded-ctl border border-ink/10 bg-surface/70 p-3">
       <div className="flex items-center gap-1.5 text-xs text-ink/60">{icon}{label}</div>
@@ -55,15 +59,16 @@ export default function TaskDetail({ task, onClose, onDone }: { task: Task | nul
       {shown && (
         <div className="flex flex-col gap-4">
           <div className="relative">
-            <TaskImage url={shown.image_url} className="aspect-[16/10] w-full rounded-card" iconSize={56} />
+            <TaskVisual task={shown} className="aspect-[16/10] w-full rounded-card" iconSize={64} />
             <button onClick={onClose} aria-label={t('task.close')} className="btn-icon absolute right-2 top-2"><X size={20} /></button>
           </div>
           <div>
             <StatusBadge view={view} />
             <h2 className="mt-2 font-display text-xl font-semibold leading-snug">{shown.title}</h2>
+            <CreatedBy task={shown} size={24} className="mt-2 text-sm text-ink/70" />
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <Chip icon={<Star size={14} aria-hidden />} label={t('task.points')} value={t('common.points', { n: shown.points })} />
+            <Chip icon={<Coin size={14} />} label={t('task.points')} value={t('common.points', { n: shown.points })} />
             <Chip icon={<CalendarClock size={14} aria-hidden />} label={t('task.deadline')} value={formatDueI18n(shown.due_at, lang, t)} />
             <Chip icon={<Repeat size={14} aria-hidden />} label={t('task.repeat')} value={t(`repeat.${shown.repeat}`)} />
           </div>
@@ -78,6 +83,8 @@ export default function TaskDetail({ task, onClose, onDone }: { task: Task | nul
             <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="flex min-h-[56px] items-center justify-center gap-2 rounded-ctl bg-ok-soft font-semibold text-ok">
               <CheckCircle2 size={22} /> {t('task.sent')}
             </motion.div>
+          ) : future ? (
+            <p className="rounded-ctl border border-brand/30 bg-brand-soft p-3 text-center text-sm text-brand">{t('task.notYet', { date: formatDueI18n(shown.due_at, lang, t) })}</p>
           ) : canDo && (
             <button className="btn-primary min-h-[56px] text-base" onClick={submit} disabled={busy || !online}>
               {busy ? <Loader2 size={20} className="animate-spin" /> : <CheckCircle2 size={20} />}

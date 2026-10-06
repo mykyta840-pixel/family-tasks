@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
-import { Flame, ImagePlus, Loader2, Star, Trash2, X } from 'lucide-react'
+import { useState, type FormEvent } from 'react'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Flame, Loader2, Trash2, X } from 'lucide-react'
+import Coin from '../components/Coin'
 import { supabase } from '../lib/supabase'
 import { humanError } from '../lib/errors'
 import { useAuth } from '../auth/AuthProvider'
@@ -9,8 +10,12 @@ import { useOnline } from '../hooks/useOnline'
 import { toLocalInput, type Child, type Repeat, type Task } from '../lib/tasks'
 import { useI18n } from '../i18n'
 import Avatar from '../components/Avatar'
-import { TaskImage } from '../components/NoteCard'
-import { removeTaskImage, uploadTaskImage } from '../lib/taskImage'
+import DatePicker from '../components/DatePicker'
+import { dayKey, parseDayKey, tasksByDay, withDay, withTime } from '../lib/calendar'
+import TaskIconPicker from '../components/TaskIconPicker'
+import { removeTaskImage } from '../lib/taskImage'
+import { deleteTask } from '../lib/taskActions'
+import { DEFAULT_ICON, isTaskIconKey, type TaskIconKey } from '../lib/taskIconKeys'
 
 const REPEATS: Repeat[] = ['none', 'daily', 'weekdays', 'weekly', 'custom']
 const DAYS = [1, 2, 3, 4, 5, 6, 0] // Пн ... Вс (0 = воскресенье)
@@ -49,48 +54,25 @@ function Form({ existing, kids }: { existing?: Task; kids: Child[] }) {
   const nav = useNavigate()
   const online = useOnline()
   const { family, session } = useAuth()
-  const { reload } = useFamilyData()
+  const { reload, tasks } = useFamilyData()
+  const [params] = useSearchParams()
+  const presetDay = !existing ? parseDayKey(params.get('date')) : null // /tasks/new?date=ГГГГ-ММ-ДД из календаря
 
   const [childId, setChildId] = useState(existing?.assigned_to ?? (kids.length === 1 ? kids[0].id : ''))
   const [title, setTitle] = useState(existing?.title ?? '')
   const [description, setDescription] = useState(existing?.description ?? '')
   const [points, setPoints] = useState(String(existing?.points ?? 20))
-  const [due, setDue] = useState(existing?.due_at ? toLocalInput(existing.due_at) : at(0, 18))
+  const [due, setDue] = useState(existing?.due_at ? toLocalInput(existing.due_at) : presetDay ? `${dayKey(presetDay)}T18:00` : at(0, 18))
   const [repeat, setRepeat] = useState<Repeat>(existing?.repeat ?? 'none')
   const [days, setDays] = useState<number[]>(existing?.repeat_days ?? [])
   const [priority, setPriority] = useState(existing?.priority === 1)
   const [busy, setBusy] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const fileRef = useRef<HTMLInputElement>(null)
-  const [imageFile, setImageFile] = useState<File | null>(null)
-  const [preview, setPreview] = useState<string | null>(null)
-  const [dropImage, setDropImage] = useState(false)
-  const shownImage = preview ?? (dropImage ? null : existing?.image_url ?? null)
-
-  // Предпросмотр выбранного файла; ссылку освобождаем, когда она не нужна
-  useEffect(() => {
-    if (!imageFile) {
-      setPreview(null)
-      return
-    }
-    const url = URL.createObjectURL(imageFile)
-    setPreview(url)
-    return () => URL.revokeObjectURL(url)
-  }, [imageFile])
-
-  function onPickImage(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    e.target.value = ''
-    if (!file) return
-    setImageFile(file)
-    setDropImage(false)
-  }
-
-  function onRemoveImage() {
-    setImageFile(null)
-    setDropImage(true)
-  }
+  // Иконка: у нового задания по умолчанию общая; у старого с загруженной картинкой null = оставить картинку
+  const [icon, setIcon] = useState<TaskIconKey | null>(
+    existing ? (isTaskIconKey(existing.icon) ? existing.icon : existing.image_url ? null : DEFAULT_ICON) : DEFAULT_ICON,
+  )
 
   async function save(e: FormEvent) {
     e.preventDefault()
@@ -101,16 +83,6 @@ function Form({ existing, kids }: { existing?: Task; kids: Child[] }) {
     if (repeat === 'custom' && days.length === 0) return setError(t('form.errDays'))
     setBusy(true)
     setError(null)
-    let newUrl: string | null = null
-    if (imageFile) {
-      try {
-        newUrl = await uploadTaskImage(family.id, imageFile)
-      } catch (err) {
-        setError(humanError(err, t))
-        setBusy(false)
-        return
-      }
-    }
     const payload = {
       title: title.trim(),
       description: description.trim() || null,
@@ -120,19 +92,18 @@ function Form({ existing, kids }: { existing?: Task; kids: Child[] }) {
       repeat,
       repeat_days: repeat === 'custom' ? days : [],
       priority: priority ? 1 : 0,
-      // image_url добавляем, только если картинку меняли или убрали; иначе остаётся прежняя
-      ...(newUrl ? { image_url: newUrl } : dropImage ? { image_url: null } : {}),
+      // выбрана встроенная иконка -> старая загруженная картинка заменяется; null = старая картинка остаётся
+      ...(icon ? { icon, image_url: null } : {}),
     }
     const { error } = existing
       ? await supabase.from('tasks').update(payload).eq('id', existing.id)
       : await supabase.from('tasks').insert({ ...payload, family_id: family.id, created_by: session.user.id })
     if (error) {
-      if (newUrl) void removeTaskImage(newUrl) // задание не сохранилось, новый файл не нужен
       setError(humanError(error, t))
       setBusy(false)
       return
     }
-    if ((newUrl || dropImage) && existing?.image_url) void removeTaskImage(existing.image_url) // старый файл больше не нужен
+    if (icon && existing?.image_url) void removeTaskImage(existing.image_url) // старая картинка заменена иконкой
     await reload()
     nav('/tasks', { replace: true })
   }
@@ -140,13 +111,13 @@ function Form({ existing, kids }: { existing?: Task; kids: Child[] }) {
   async function remove() {
     if (!existing || busy || !online) return
     setBusy(true)
-    const { error } = await supabase.from('tasks').delete().eq('id', existing.id)
-    if (error) {
-      setError(humanError(error, t))
+    try {
+      await deleteTask(existing)
+    } catch (e) {
+      setError(humanError(e, t))
       setBusy(false)
       return
     }
-    if (existing.image_url) void removeTaskImage(existing.image_url)
     await reload()
     nav('/tasks', { replace: true })
   }
@@ -193,20 +164,8 @@ function Form({ existing, kids }: { existing?: Task; kids: Child[] }) {
       </section>
 
       <section className="card flex flex-col gap-3">
-        <h2 className={LABEL}>{t('form.image')}</h2>
-        {shownImage && <TaskImage url={shownImage} className="aspect-[16/10] w-full rounded-card" iconSize={48} />}
-        <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onPickImage} />
-        <div className={`grid gap-2 ${shownImage ? 'grid-cols-2' : 'grid-cols-1'}`}>
-          <button type="button" className="btn-soft px-3" disabled={busy || !online} onClick={() => fileRef.current?.click()}>
-            <ImagePlus size={18} aria-hidden /> {shownImage ? t('form.imageChange') : t('form.imageAdd')}
-          </button>
-          {shownImage && (
-            <button type="button" className="btn-danger px-3" disabled={busy} onClick={onRemoveImage}>
-              <Trash2 size={18} aria-hidden /> {t('form.imageRemove')}
-            </button>
-          )}
-        </div>
-        <p className="text-sm text-ink/50">{t('form.imageHint')}</p>
+        <h2 className={LABEL}>{t('form.icon')}</h2>
+        <TaskIconPicker value={icon} onChange={setIcon} legacyImage={existing?.image_url ?? null} />
       </section>
 
       <section className="card flex flex-col gap-3">
@@ -214,7 +173,7 @@ function Form({ existing, kids }: { existing?: Task; kids: Child[] }) {
         <div className="flex flex-wrap items-center gap-2">
           {POINTS.map((p) => (
             <button key={p} type="button" aria-pressed={points === String(p)} onClick={() => setPoints(String(p))} className={`${chip(points === String(p), 'star')} inline-flex items-center gap-1`}>
-              <Star size={14} fill="currentColor" aria-hidden /> {p}
+              <Coin size={14} /> {p}
             </button>
           ))}
           <input
@@ -236,14 +195,29 @@ function Form({ existing, kids }: { existing?: Task; kids: Child[] }) {
           {[
             { label: t('form.dueToday'), value: at(0, 18) },
             { label: t('form.dueTomorrow'), value: at(1, 18) },
+            { label: t('form.dueWeek'), value: at(7, 18) },
             { label: t('form.dueNone'), value: '' },
-          ].map((o) => (
-            <button key={o.label} type="button" aria-pressed={due === o.value} onClick={() => setDue(o.value)} className={chip(due === o.value)}>
-              {o.label}
-            </button>
-          ))}
+          ].map((o) => {
+            const on = o.value === '' ? due === '' : due.slice(0, 10) === o.value.slice(0, 10)
+            return (
+              <button key={o.label} type="button" aria-pressed={on} onClick={() => setDue(o.value)} className={chip(on)}>
+                {o.label}
+              </button>
+            )
+          })}
         </div>
-        <input className="input" type="datetime-local" value={due} onChange={(e) => setDue(e.target.value)} aria-label={t('form.due')} />
+        <DatePicker
+          value={due ? due.slice(0, 10) : null}
+          onPick={(day) => setDue((cur) => withDay(cur, day))}
+          marks={new Map([...tasksByDay(tasks)].map(([k, v]) => [k, v.length]))}
+          minDay={existing?.due_at ? undefined : dayKey(new Date())}
+        />
+        {due && (
+          <label className="flex items-center justify-between gap-3 text-sm font-semibold text-ink/70">
+            {t('form.time')}
+            <input className="input w-32" type="time" value={due.slice(11, 16)} onChange={(e) => setDue((cur) => withTime(cur, e.target.value))} />
+          </label>
+        )}
       </section>
 
       <section className="card flex flex-col gap-3">

@@ -109,3 +109,11 @@ export async function sendTestPush(): Promise<number> {
   if (error) throw error
   return typeof data === 'number' ? data : 0
 }
+
+/** Тест прошёл успешно: сохраняем это в профиле (в базе), чтобы кнопка больше не показывалась ни на одном устройстве. */
+export async function markPushTestDone(): Promise<void> {
+  const { error } = await supabase.rpc('mark_push_test_done')
+  if (error) throw error
+}
+
+export { PUSH_TEST_DONE_EVENT, PUSH_TEST_TAG, isPushTestTag } from './pushUtil'

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { ArrowDownRight, ArrowUpRight, ClipboardCheck, Gift, History as HistoryIcon, SlidersHorizontal, Star, type LucideIcon } from 'lucide-react'
+import { ArrowDownRight, ArrowUpRight, ClipboardCheck, Gift, History as HistoryIcon, SlidersHorizontal, type LucideIcon } from 'lucide-react'
+import Coin from '../components/Coin'
 import { useAuth } from '../auth/AuthProvider'
 import { useFamilyData } from '../data/FamilyData'
 import { useI18n } from '../i18n'
@@ -56,13 +57,13 @@ export default function History() {
         <div className="rounded-card border border-ink/10 bg-gradient-to-br from-brand to-brand-dark p-5 text-on-brand shadow-glow">
           <div className="text-sm opacity-80">{t('child.myPoints')}</div>
           <div className="mt-1 flex items-center gap-2 font-display text-4xl font-semibold leading-none">
-            <Star size={30} fill="currentColor" aria-hidden /> {myBalance}
+            <Coin size={30} /> {myBalance}
           </div>
         </div>
       )}
 
       {role === 'parent' && children.length > 1 && (
-        <div className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1" role="tablist">
+        <div className="no-scrollbar -mx-5 flex gap-2 overflow-x-auto px-5 pb-1" role="tablist">
           {[{ id: 'all', name: t('hist.all') }, ...children].map((c) => (
             <button
               key={c.id}
@@ -140,7 +141,7 @@ export default function History() {
                   <div className={`inline-flex shrink-0 items-center gap-1 font-display font-semibold ${plus ? 'text-ok' : 'text-warn'}`}>
                     {plus ? '+' : '−'}
                     {Math.abs(x.amount)}
-                    <Star size={14} fill="currentColor" aria-hidden />
+                    <Coin size={14} />
                   </div>
                 </motion.div>
               )

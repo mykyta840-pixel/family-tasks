@@ -4,10 +4,11 @@ import { supabase } from '../lib/supabase'
 import { humanError } from '../lib/errors'
 import { useAuth } from '../auth/AuthProvider'
 import { useI18n } from '../i18n'
+import { markTourPending } from '../components/WelcomeTour'
 
 export default function Onboarding() {
   const { t } = useI18n()
-  const { profile, refresh, signOut } = useAuth()
+  const { profile, session, refresh, signOut } = useAuth()
   const [familyName, setFamilyName] = useState('')
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState<null | 'create' | 'join'>(null)
@@ -23,7 +24,10 @@ export default function Onboarding() {
         ? await supabase.rpc('create_family', { p_name: familyName.trim() })
         : await supabase.rpc('join_family', { p_code: code })
     if (error) setError(humanError(error, t))
-    else await refresh()
+    else {
+      if (session) markTourPending(session.user.id) // новый участник семьи увидит приветственный тур
+      await refresh()
+    }
     setBusy(null)
   }
 

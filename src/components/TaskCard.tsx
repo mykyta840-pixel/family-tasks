@@ -1,10 +1,11 @@
 import type { ReactNode } from 'react'
 import Avatar from './Avatar'
-import { Clock, Flame, Repeat, Star } from 'lucide-react'
+import { Clock, Flame, Repeat } from 'lucide-react'
+import Coin from './Coin'
 import { formatDueI18n, viewOf, type Child, type Task } from '../lib/tasks'
 import { useI18n } from '../i18n'
 import StatusBadge from './StatusBadge'
-import { TaskImage } from './NoteCard'
+import TaskVisual from './TaskVisual'
 import RemindButton from './RemindButton'
 
 interface Props {
@@ -35,11 +36,11 @@ export default function TaskCard({ task, child, onClick, children }: Props) {
           <span className="ml-auto"><StatusBadge view={view} /></span>
         </div>
         <div className="mt-2 flex items-start gap-3">
-          {task.image_url && <TaskImage url={task.image_url} className="h-14 w-14 shrink-0 rounded-xl" iconSize={22} />}
+          <TaskVisual task={task} className="h-14 w-14 shrink-0 rounded-xl" iconSize={26} />
           <h3 className="min-w-0 break-words text-lg font-semibold leading-snug">{task.title}</h3>
         </div>
         <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
-          <span className="inline-flex items-center gap-1 rounded-full bg-star-soft px-3 py-1 font-semibold text-star"><Star size={14} fill="currentColor" aria-hidden /> {task.points}</span>
+          <span className="inline-flex items-center gap-1 rounded-full bg-star-soft px-3 py-1 font-semibold text-star"><Coin size={14} /> {task.points}</span>
           <span className={view === 'overdue' ? 'font-medium text-warn' : 'text-ink/60'}><Clock size={13} className="mr-1 inline" aria-hidden />{formatDueI18n(task.due_at, lang, t)}</span>
           {task.priority === 1 && <Flame size={16} className="text-star" aria-label={t('task.important')} />}
           {task.repeat !== 'none' && <Repeat size={15} className="text-ink/60" aria-label={t('task.repeat')} />}

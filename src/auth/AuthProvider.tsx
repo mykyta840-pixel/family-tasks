@@ -31,10 +31,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loadedFor, setLoadedFor] = useState<string | null>(null)
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session)
-      setReady(true)
-    })
+    supabase.auth
+      .getSession()
+      .then(({ data }) => setSession(data.session))
+      .catch(() => undefined) // нет сети: считаем, что входа нет, но экран не зависает
+      .finally(() => setReady(true))
     const { data } = supabase.auth.onAuthStateChange((_event, s) => setSession(s))
     return () => data.subscription.unsubscribe()
   }, [])
@@ -49,7 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return
     }
     const [p, m] = await Promise.all([
-      supabase.from('profiles').select('id, display_name, avatar_url, bio, language').eq('id', uid).maybeSingle(),
+      supabase.from('profiles').select('id, display_name, avatar_url, bio, language, push_test_done_at').eq('id', uid).maybeSingle(),
       supabase.from('family_members').select('role, family:families(id, name)').eq('user_id', uid).maybeSingle(),
     ])
     if (p.error || m.error) return // при сбое сети оставляем прежние данные
@@ -66,6 +67,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       alive = false
     }
   }, [load, uid])
+
+  // Родитель сменил моё имя/фото/язык: подхватываем сразу, не дожидаясь возврата в приложение
+  useEffect(() => {
+    if (!uid) return
+    const channel = supabase
+      .channel(`me-${uid}-${Math.random().toString(36).slice(2)}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${uid}` }, () => void load())
+      .subscribe()
+    return () => {
+      void supabase.removeChannel(channel)
+    }
+  }, [uid, load])
 
   // Возвращение сети или в приложение: тихо обновляем данные
   useEffect(() => {

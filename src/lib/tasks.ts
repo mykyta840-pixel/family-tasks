@@ -1,4 +1,5 @@
 import { ruT } from '../i18n/ruT'
+import type { Role } from './types'
 
 export type TaskStatus = 'todo' | 'submitted' | 'approved' | 'rejected'
 export type Repeat = 'none' | 'daily' | 'weekdays' | 'weekly' | 'custom'
@@ -16,7 +17,9 @@ export interface Task {
   priority: 0 | 1
   status: TaskStatus
   reject_reason: string | null
-  image_url?: string | null // картинка задания (bucket task-images)
+  image_url?: string | null // старая загруженная картинка (bucket task-images); новые задания используют icon
+  icon?: string | null // ключ встроенной иконки (см. lib/taskIconKeys.ts)
+  created_by?: string | null // кто добавил задание (профиль родителя)
   created_at: string
 }
 
@@ -28,6 +31,14 @@ export function taskImagePath(url: string | null | undefined): string | null {
   if (i < 0) return null
   const path = decodeURIComponent(url.slice(i + marker.length).split('?')[0])
   return path || null
+}
+
+// Участник семьи (родитель или ребёнок) с настоящим профилем
+export interface Member {
+  id: string
+  name: string
+  avatar_url: string | null
+  role: Role
 }
 
 export interface Child {
@@ -102,4 +113,14 @@ export function formatDueI18n(iso: string | null, lang: string, t: (k: string) =
   if (diff === 1) return `${t('date.tomorrow')}, ${time}`
   if (diff === -1) return `${t('date.yesterday')}, ${time}`
   return `${d.toLocaleDateString(loc, { day: 'numeric', month: 'short' })}, ${time}`
+}
+
+// Короткий срок для маленьких карточек: без времени
+export function formatDueShort(iso: string | null, lang: string, t: (k: string) => string): string {
+  if (!iso) return t('date.none')
+  const diff = dayDiff(iso)
+  if (diff === 0) return t('date.today')
+  if (diff === 1) return t('date.tomorrow')
+  if (diff === -1) return t('date.yesterday')
+  return new Date(iso).toLocaleDateString(LOCALE[lang] ?? 'en-GB', { day: 'numeric', month: 'short' })
 }

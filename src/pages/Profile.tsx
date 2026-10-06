@@ -1,6 +1,4 @@
-import { useI18n, type Lang } from '../i18n'
-import ThemeSwitcher from '../theme/ThemeSwitcher'
-import LanguageSelect from '../components/LanguageSelect'
+import { useI18n } from '../i18n'
 import { useEffect, useRef, useState } from 'react'
 import { Camera, Check, LogOut, Trash2 } from 'lucide-react'
 import { useAuth } from '../auth/AuthProvider'
@@ -10,19 +8,20 @@ import { humanError } from '../lib/errors'
 import { removeAvatar, uploadAvatar } from '../lib/avatar'
 import { useOnline } from '../hooks/useOnline'
 import Avatar from '../components/Avatar'
-import PushSettings from '../components/PushSettings'
+import AvatarCropper from '../components/AvatarCropper'
 
 const MAX_BIO = 200
 const MAX_NAME = 40
 
 export default function Profile() {
   const { profile, session, role, family, refresh, signOut } = useAuth()
-  const { t, setLang, setForced } = useI18n()
+  const { t } = useI18n()
   const { reload } = useFamilyData()
   const online = useOnline()
   const uid = session?.user.id ?? ''
   const fileRef = useRef<HTMLInputElement>(null)
   const lock = useRef(false)
+  const [picked, setPicked] = useState<File | null>(null)
 
   const [name, setName] = useState(profile?.display_name ?? '')
   const [bio, setBio] = useState(profile?.bio ?? '')
@@ -63,25 +62,20 @@ export default function Profile() {
     const file = e.target.files?.[0]
     e.target.value = ''
     if (!file || !uid) return
+    setPicked(file) // сначала окно «подвинь фото», загрузка — после «Сохранить»
+  }
+
+  async function onCropped(blob: Blob) {
+    setPicked(null)
+    if (!uid) return
     await run('photo', async () => {
-      await uploadAvatar(uid, file)
+      await uploadAvatar(uid, blob)
     })
   }
 
   async function onRemove() {
     if (!uid) return
     await run('photo', () => removeAvatar(uid))
-  }
-
-  // Язык: сразу применяем на этом телефоне и сохраняем в профиле (чтобы был одинаковым на всех устройствах)
-  async function onLang(l: Lang) {
-    setLang(l)
-    setForced(l)
-    if (!uid || !online) return
-    setError(null)
-    const { error } = await supabase.rpc('set_member_language', { p_user: uid, p_lang: l })
-    if (error) setError(humanError(error, t))
-    else await refresh()
   }
 
   async function onSave() {
@@ -98,6 +92,7 @@ export default function Profile() {
 
   return (
     <div className="flex flex-col gap-5">
+      <AvatarCropper file={picked} onCancel={() => setPicked(null)} onDone={(b) => void onCropped(b)} />
       <h1 className="font-display text-2xl font-semibold">{t('profile.title')}</h1>
 
       <div className="card flex flex-col items-center gap-4">
@@ -162,23 +157,6 @@ export default function Profile() {
           </p>
         )}
       </div>
-
-      <div className="card flex flex-col gap-4">
-        <div className="flex flex-col gap-2">
-          <span className="text-sm font-semibold text-ink/70">{t('settings.theme')}</span>
-          <ThemeSwitcher />
-        </div>
-        <div className="flex flex-col gap-2">
-          <span className="text-sm font-semibold text-ink/70">{t('settings.language')}</span>
-          {role === 'child' && profile?.language ? (
-            <p className="text-sm text-ink/60">{t('profile.langByParent')}</p>
-          ) : (
-            <LanguageSelect onChange={onLang} />
-          )}
-        </div>
-      </div>
-
-      <PushSettings />
 
       <div className="card flex flex-col gap-1 text-sm">
         <div className="flex justify-between">

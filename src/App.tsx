@@ -1,15 +1,17 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { isConfigured } from './lib/supabase'
-import { hideSplash } from './lib/splash'
-import { useEffect } from 'react'
+import { hideSplash, splashReady } from './lib/splash'
+import { useEffect, useRef } from 'react'
 import { AuthProvider, useAuth } from './auth/AuthProvider'
 import { isLang, useI18n } from './i18n'
-import { FamilyDataProvider } from './data/FamilyData'
+import { callRpc } from './lib/actions'
+import { FamilyDataProvider, useFamilyData } from './data/FamilyData'
 import { NotificationsProvider } from './data/Notifications'
 import ConfigMissing from './components/ConfigMissing'
 import Shell from './components/Shell'
 import ErrorBoundary from './components/ErrorBoundary'
 import PushBridge from './components/PushBridge'
+import WelcomeTour from './components/WelcomeTour'
 import Auth from './pages/Auth'
 import Onboarding from './pages/Onboarding'
 import FamilyHome from './pages/FamilyHome'
@@ -21,23 +23,48 @@ import ChildShop from './pages/ChildShop'
 import ParentRewards from './pages/ParentRewards'
 import History from './pages/History'
 import Profile from './pages/Profile'
+import Settings from './pages/Settings'
 
-// Язык, сохранённый в профиле, перекрывает локальный выбор (ребёнку язык выбирает родитель)
+// Язык, сохранённый в профиле, перекрывает локальный выбор (на всех устройствах человека язык один).
+// Если в профиле языка ещё нет (новый участник), записываем туда тот, что сейчас на экране.
 function LanguageSync() {
-  const { profile } = useAuth()
-  const { setForced } = useI18n()
+  const { profile, session, refresh } = useAuth()
+  const { lang, setForced } = useI18n()
   const saved = profile?.language
+  const langRef = useRef(lang)
+  langRef.current = lang
+  const asked = useRef<string | null>(null)
   useEffect(() => {
     setForced(isLang(saved) ? saved : null)
   }, [saved, setForced])
+  const uid = session?.user.id
+  const loaded = !!profile
+  useEffect(() => {
+    if (!uid || !loaded || isLang(saved) || asked.current === uid) return
+    asked.current = uid // одна попытка за вход: при сбое не зацикливаемся
+    callRpc('set_member_language', { p_user: uid, p_lang: langRef.current })
+      .then(() => refresh())
+      .catch(() => { /* язык запишется при следующем входе или в «Настройках» */ })
+  }, [uid, loaded, saved, refresh])
+  return null
+}
+
+// Заставка ждёт и первую загрузку данных семьи (задания, дети, награды)
+function SplashDataReady() {
+  const { loading } = useFamilyData()
+  useEffect(() => {
+    if (!loading) splashReady('data')
+  }, [loading])
   return null
 }
 
 function Gate() {
   const { session, family, role, loading } = useAuth()
   useEffect(() => {
-    if (!loading) hideSplash()
-  }, [loading])
+    if (loading) return
+    splashReady('auth')
+    if (!session || !family) splashReady('data') // нет семьи — данных ждать нечего
+  }, [loading, session, family])
   if (loading) {
     return (
       <div className="grid min-h-full place-items-center">
@@ -50,15 +77,18 @@ function Gate() {
   const parent = role === 'parent'
   return (
     <FamilyDataProvider familyId={family.id}>
+      <SplashDataReady />
       <NotificationsProvider userId={session.user.id}>
       <PushBridge userId={session.user.id} />
       <Shell>
+        <WelcomeTour />
         <Routes>
           <Route path="/" element={parent ? <ParentDashboard /> : <ChildHome />} />
           <Route path="/family" element={<FamilyHome />} />
           <Route path="/rewards" element={parent ? <ParentRewards /> : <ChildShop />} />
           <Route path="/history" element={<History />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/settings" element={<Settings />} />
           {parent && <Route path="/tasks" element={<TaskList />} />}
           {parent && <Route path="/tasks/new" element={<TaskForm />} />}
           {parent && <Route path="/tasks/:id" element={<TaskForm />} />}
@@ -72,7 +102,7 @@ function Gate() {
 
 export default function App() {
   useEffect(() => {
-    if (!isConfigured) hideSplash()
+    if (!isConfigured) hideSplash()  // без настроек ждать нечего
   }, [])
   if (!isConfigured) return <ConfigMissing />
   return (

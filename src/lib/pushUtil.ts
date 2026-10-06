@@ -16,3 +16,8 @@ export function pathFromUrl(url: string, origin: string): string | null {
     return null
   }
 }
+
+// Тестовое уведомление: тег у push вида "push_test:<id>"; после его показа устройство подтверждает тест
+export const PUSH_TEST_TAG = 'push_test'
+export const PUSH_TEST_DONE_EVENT = 'ft:push-test-done'
+export const isPushTestTag = (tag: unknown) => typeof tag === 'string' && tag.startsWith(`${PUSH_TEST_TAG}:`)

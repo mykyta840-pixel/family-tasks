@@ -1,20 +1,26 @@
 import { useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
-import { ClipboardList, Plus, UserPlus } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { CalendarDays, ClipboardList, List, Plus, UserPlus } from 'lucide-react'
 import { useFamilyData } from '../data/FamilyData'
 import { useI18n } from '../i18n'
 import { FILTERS, matchesFilter, type Child, type Filter } from '../lib/tasks'
-import TaskCard from '../components/TaskCard'
-import ReviewActions from '../components/ReviewActions'
+import TaskGridCard from '../components/TaskGridCard'
+import ParentTaskSheet from '../components/ParentTaskSheet'
+import DatePicker from '../components/DatePicker'
+import { dayKey, tasksByDay } from '../lib/calendar'
 
 export default function TaskList() {
   const { t } = useI18n()
-  const { tasks, children, loading, reload } = useFamilyData()
-  const nav = useNavigate()
+  const { tasks, children, loading } = useFamilyData()
+  const [openId, setOpenId] = useState<string | null>(null)
   const [filter, setFilter] = useState<Filter>('today')
+  const [mode, setMode] = useState<'list' | 'calendar'>('list')
+  const [day, setDay] = useState(dayKey(new Date()))
+  const byDay = useMemo(() => tasksByDay(tasks), [tasks])
+  const dayTasks = byDay.get(day) ?? []
   const byId = useMemo(() => new Map<string, Child>(children.map((c) => [c.id, c] as [string, Child])), [children])
   const shown = tasks.filter((x) => matchesFilter(x, filter))
+  const opened = tasks.find((x) => x.id === openId) ?? null // удалили или изменили на другом телефоне — окно закроется само
 
   return (
     <div className="flex flex-col gap-4">
@@ -27,7 +33,32 @@ export default function TaskList() {
         )}
       </div>
 
-      <div className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1" role="tablist">
+      <div className="grid grid-cols-2 gap-1 rounded-full border border-ink/10 bg-surface/60 p-1" role="group" aria-label={t('cal.view')}>
+        {([['list', List, t('cal.list')], ['calendar', CalendarDays, t('cal.calendar')]] as const).map(([k, Icon, label]) => (
+          <button key={k} type="button" aria-pressed={mode === k} onClick={() => setMode(k)}
+            className={`inline-flex min-h-[40px] items-center justify-center gap-1.5 rounded-full text-sm font-semibold transition duration-fast ${mode === k ? 'bg-brand text-on-brand shadow-glow' : 'text-ink/70'}`}>
+            <Icon size={16} aria-hidden /> {label}
+          </button>
+        ))}
+      </div>
+
+      {mode === 'calendar' ? (
+        <div className="flex flex-col gap-3">
+          <DatePicker value={day} onPick={setDay} marks={new Map([...byDay].map(([k, v]) => [k, v.length]))} />
+          {children.length > 0 && (
+            <Link to={`/tasks/new?date=${day}`} className="btn-soft w-full"><Plus size={18} aria-hidden /> {t('cal.addForDay')}</Link>
+          )}
+          {dayTasks.length === 0 ? (
+            <p className="glass rounded-card p-5 text-center text-sm text-ink/60">{t('cal.noTasks')}</p>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              {dayTasks.map((x, i) => <TaskGridCard key={x.id} task={x} child={byId.get(x.assigned_to)} index={i} onOpen={() => setOpenId(x.id)} />)}
+            </div>
+          )}
+        </div>
+      ) : (
+      <>
+      <div className="no-scrollbar -mx-5 flex gap-2 overflow-x-auto px-5 pb-1" role="tablist">
         {FILTERS.map((f) => {
           const count = tasks.filter((x) => matchesFilter(x, f.key)).length
           const active = filter === f.key
@@ -49,7 +80,7 @@ export default function TaskList() {
       </div>
 
       {loading ? (
-        [0, 1, 2].map((i) => <div key={i} className="skeleton h-28" />)
+        <div className="grid grid-cols-2 gap-3">{[0, 1, 2, 3].map((i) => <div key={i} className="skeleton aspect-square min-h-[168px]" />)}</div>
       ) : shown.length === 0 ? (
         <div className="glass flex flex-col items-center gap-3 rounded-card p-6 text-center">
           <div className="grid h-14 w-14 place-items-center rounded-2xl bg-brand-soft text-brand">
@@ -71,14 +102,17 @@ export default function TaskList() {
           )}
         </div>
       ) : (
-        shown.map((x, i) => (
-          <motion.div key={x.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.22, delay: Math.min(i, 6) * 0.03 }}>
-            <TaskCard task={x} child={byId.get(x.assigned_to)} onClick={() => nav(`/tasks/${x.id}`)}>
-              {x.status === 'submitted' && <ReviewActions taskId={x.id} onDone={() => void reload()} />}
-            </TaskCard>
-          </motion.div>
-        ))
+        <div className="grid grid-cols-2 gap-3">
+          {shown.map((x, i) => (
+            <TaskGridCard key={x.id} task={x} child={byId.get(x.assigned_to)} index={i} onOpen={() => setOpenId(x.id)} />
+          ))}
+        </div>
       )}
+
+      </>
+      )}
+
+      <ParentTaskSheet task={opened} onClose={() => setOpenId(null)} />
     </div>
   )
 }

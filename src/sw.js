@@ -20,19 +20,25 @@ self.addEventListener('push', (event) => {
   const title = d.title || 'Family Tasks'
   // iOS требует показывать уведомление на каждый push, поэтому показываем всегда
   event.waitUntil(
-    self.registration.showNotification(title, {
-      body: d.body || '',
-      icon: '/icon-192.png',
-      badge: '/badge-96.png',
-      tag: d.tag || undefined,
-      renotify: Boolean(d.tag),
-      data: { url: d.url || '/' },
-    }),
+    (async () => {
+      await self.registration.showNotification(title, {
+        body: d.body || '',
+        icon: '/icon-192.png',
+        badge: '/badge-96.png',
+        tag: d.tag || undefined,
+        renotify: Boolean(d.tag),
+        data: { url: d.url || '/', tag: d.tag || '' },
+      })
+      // Уведомление показано на этом устройстве: сообщаем открытым окнам (нужно для подтверждения теста)
+      const list = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+      list.forEach((c) => c.postMessage({ type: 'push-received', tag: d.tag || '' }))
+    })(),
   )
 })
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
+  const tag = (event.notification.data && event.notification.data.tag) || ''
   const url = new URL((event.notification.data && event.notification.data.url) || '/', self.location.origin).href
   event.waitUntil(
     (async () => {
@@ -41,6 +47,7 @@ self.addEventListener('notificationclick', (event) => {
         if (new URL(c.url).origin === self.location.origin) {
           await c.focus()
           c.postMessage({ type: 'push-open', url })
+          if (tag) c.postMessage({ type: 'push-received', tag })
           return
         }
       }

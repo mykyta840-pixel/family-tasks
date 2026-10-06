@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Bell, BellOff, CheckCheck, Trash2, X } from 'lucide-react'
 import { useNotifications } from '../data/Notifications'
+import { useFamilyData } from '../data/FamilyData'
+import { localizeNotice } from '../lib/noticeText'
 import { ago, noticeLink } from '../lib/notices'
 import { useOnline } from '../hooks/useOnline'
 import { useI18n } from '../i18n'
@@ -11,6 +13,8 @@ import Sheet from './Sheet'
 export default function NotificationBell() {
   const { items, unread, toast, dismissToast, markRead, markAllRead, remove, clearAll } = useNotifications()
   const { t } = useI18n()
+  const { tasks, redemptions, children, members } = useFamilyData()
+  const text = (n: (typeof items)[number]) => localizeNotice(n, t, { tasks, redemptions, children, members })
   const online = useOnline()
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
@@ -70,8 +74,8 @@ export default function NotificationBell() {
                       <div className="flex items-start gap-2">
                         {!n.read_at && <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-brand" />}
                         <div className="min-w-0">
-                          <div className="font-semibold leading-snug">{n.title}</div>
-                          {n.body && <div className="mt-0.5 text-sm text-ink/70">{n.body}</div>}
+                          <div className="font-semibold leading-snug">{text(n).title}</div>
+                          {text(n).body && <div className="mt-0.5 text-sm text-ink/70">{text(n).body}</div>}
                           <div className="mt-1 text-xs text-ink/50">{ago(n.created_at, Date.now(), t)}</div>
                         </div>
                       </div>
@@ -104,8 +108,8 @@ export default function NotificationBell() {
             className="glass fixed inset-x-4 z-40 mx-auto max-w-md rounded-card border-brand/40 p-4 text-left shadow-glow"
             style={{ top: 'calc(0.75rem + env(safe-area-inset-top))' }}
           >
-            <div className="font-semibold leading-snug">{toast.title}</div>
-            {toast.body && <div className="mt-0.5 text-sm text-ink/70">{toast.body}</div>}
+            <div className="font-semibold leading-snug">{text(toast).title}</div>
+            {text(toast).body && <div className="mt-0.5 text-sm text-ink/70">{text(toast).body}</div>}
           </motion.button>
         )}
       </AnimatePresence>

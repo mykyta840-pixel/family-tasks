@@ -18,6 +18,8 @@ const RULES: [string, string][] = [
   ['already_requested', 'err.alreadyRequested'],
   ['not_enough_points', 'err.notEnoughPoints'],
   ['bad_image', 'err.badImage'],
+  ['bad_name', 'err.badName'],
+  ['bad_avatar', 'err.badImage'],
   ['remind_too_soon', 'err.remindTooSoon'],
 ]
 

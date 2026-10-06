@@ -1,12 +1,14 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { supabase } from '../lib/supabase'
 import { useI18n } from '../i18n'
-import type { Child, Task } from '../lib/tasks'
+import type { Child, Member, Task } from '../lib/tasks'
+import type { Role } from '../lib/types'
 import type { Redemption, Reward, Txn } from '../lib/rewards'
 
 interface Data {
   tasks: Task[]
   children: Child[]
+  members: Member[] // все участники семьи: родители и дети (для «Добавил: ...»)
   rewards: Reward[]
   redemptions: Redemption[]
   txns: Txn[]
@@ -26,12 +28,14 @@ export function useFamilyData(): Data {
 
 interface MemberRow {
   user_id: string
+  role: Role
   profiles: { display_name: string; avatar_url: string | null } | null
 }
 
 export function FamilyDataProvider({ familyId, children: content }: { familyId: string; children: ReactNode }) {
   const [tasks, setTasks] = useState<Task[]>([])
   const [kids, setKids] = useState<Child[]>([])
+  const [members, setMembers] = useState<Member[]>([])
   const [rewards, setRewards] = useState<Reward[]>([])
   const [redemptions, setRedemptions] = useState<Redemption[]>([])
   const [txns, setTxns] = useState<Txn[]>([])
@@ -51,7 +55,7 @@ export function FamilyDataProvider({ familyId, children: content }: { familyId: 
   const load = useCallback(async () => {
     const [t, m, b, rw, rd, tx] = await Promise.all([
       supabase.from('tasks').select('*').eq('family_id', familyId).order('due_at', { ascending: true, nullsFirst: false }),
-      supabase.from('family_members').select('user_id, profiles(display_name, avatar_url)').eq('family_id', familyId).eq('role', 'child'),
+      supabase.from('family_members').select('user_id, role, profiles(display_name, avatar_url)').eq('family_id', familyId),
       supabase.from('child_balances').select('child_id, balance').eq('family_id', familyId),
       supabase.from('rewards').select('*').eq('family_id', familyId).order('cost', { ascending: true }),
       supabase.from('reward_redemptions').select('*').eq('family_id', familyId).order('created_at', { ascending: false }).limit(100),
@@ -67,13 +71,24 @@ export function FamilyDataProvider({ familyId, children: content }: { familyId: 
     setRewards((rw.data ?? []) as Reward[])
     setRedemptions((rd.data ?? []) as Redemption[])
     setTxns((tx.data ?? []) as Txn[])
-    setKids(
-      ((m.data ?? []) as unknown as MemberRow[]).map((r) => ({
+    const rows = (m.data ?? []) as unknown as MemberRow[]
+    setMembers(
+      rows.map((r) => ({
         id: r.user_id,
-        name: r.profiles?.display_name ?? 'Ребёнок',
+        name: r.profiles?.display_name ?? '—',
         avatar_url: r.profiles?.avatar_url ?? null,
-        balance: balances.get(r.user_id) ?? 0,
+        role: r.role,
       })),
+    )
+    setKids(
+      rows
+        .filter((r) => r.role === 'child')
+        .map((r) => ({
+          id: r.user_id,
+          name: r.profiles?.display_name ?? 'Ребёнок',
+          avatar_url: r.profiles?.avatar_url ?? null,
+          balance: balances.get(r.user_id) ?? 0,
+        })),
     )
     setError(null)
     setLoading(false)
@@ -92,6 +107,8 @@ export function FamilyDataProvider({ familyId, children: content }: { familyId: 
     for (const table of ['tasks', 'points_transactions', 'family_members', 'rewards', 'reward_redemptions']) {
       channel.on('postgres_changes', { event: '*', schema: 'public', table, filter: `family_id=eq.${familyId}` }, schedule)
     }
+    // Смена имени/фото любого участника семьи (RLS отдаёт только профили своей семьи)
+    channel.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles' }, schedule)
     channel.subscribe((status) => {
       if (status === 'SUBSCRIBED') schedule()
     })
@@ -109,7 +126,7 @@ export function FamilyDataProvider({ familyId, children: content }: { familyId: 
   }, [familyId, load])
 
   return (
-    <Ctx.Provider value={{ tasks, children: kids, rewards, redemptions, txns, loading, error, reload: load, now }}>
+    <Ctx.Provider value={{ tasks, children: kids, members, rewards, redemptions, txns, loading, error, reload: load, now }}>
       {content}
     </Ctx.Provider>
   )

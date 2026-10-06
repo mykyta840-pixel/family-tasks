@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { BellRing, CheckCheck, ChevronRight, History, Plus, Star, UserPlus } from 'lucide-react'
+import { BellRing, ChevronRight, History, Plus, UserPlus } from 'lucide-react'
+import Coin from '../components/Coin'
 import { useAuth } from '../auth/AuthProvider'
 import { useFamilyData } from '../data/FamilyData'
 import type { Child } from '../lib/tasks'
@@ -10,6 +11,7 @@ import ReviewActions from '../components/ReviewActions'
 import RewardIcon from '../components/RewardIcon'
 import Avatar from '../components/Avatar'
 import RedemptionActions from '../components/RedemptionActions'
+import WeekChart from '../components/WeekChart'
 
 function greetKey(): string {
   const h = new Date().getHours()
@@ -49,21 +51,20 @@ export default function ParentDashboard() {
         </div>
       ) : (
         <>
-          {/* главное: что требует внимания родителя */}
-          <div className={`flex items-center gap-4 rounded-card border p-5 shadow-card ${
-            attention > 0 ? 'border-brand/40 bg-gradient-to-br from-brand to-brand-dark text-on-brand shadow-glow' : 'glass'}`}>
-            <div className={`grid h-12 w-12 shrink-0 place-items-center rounded-2xl ${attention > 0 ? 'bg-black/20' : 'bg-ok-soft text-ok'}`}>
-              {attention > 0 ? <BellRing size={24} aria-hidden /> : <CheckCheck size={24} aria-hidden />}
-            </div>
-            <div className="min-w-0">
-              <div className="font-display text-lg font-semibold leading-tight">
-                {attention > 0 ? t('dash.attention', { n: attention }) : t('dash.allClear')}
+          {/* требует внимания родителя: блок виден только когда есть что проверить */}
+          {attention > 0 && (
+            <div className="flex items-center gap-4 rounded-card border border-brand/40 bg-gradient-to-br from-brand to-brand-dark p-5 text-on-brand shadow-card shadow-glow">
+              <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-black/20">
+                <BellRing size={24} aria-hidden />
               </div>
-              <div className={`mt-0.5 text-sm ${attention > 0 ? 'opacity-85' : 'text-ink/60'}`}>
-                {attention > 0 ? t('dash.attentionSub') : t('dash.allClearSub')}
+              <div className="min-w-0">
+                <div className="font-display text-lg font-semibold leading-tight">{t('dash.attention', { n: attention })}</div>
+                <div className="mt-0.5 text-sm opacity-85">{t('dash.attentionSub')}</div>
               </div>
             </div>
-          </div>
+          )}
+
+          <WeekChart childId={null} title={t('dash.week')} />
 
           <div className="card flex flex-col gap-1">
             <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink/60">{t('dash.kids')}</div>
@@ -72,7 +73,7 @@ export default function ParentDashboard() {
                 <Avatar name={c.name} url={c.avatar_url} size={40} />
                 <div className="flex-1 font-medium">{c.name}</div>
                 <div className="inline-flex items-center gap-1 rounded-full bg-star-soft px-3 py-1 font-display font-semibold text-star">
-                  <Star size={14} fill="currentColor" aria-hidden /> {c.balance}
+                  <Coin size={14} /> {c.balance}
                 </div>
               </div>
             ))}
@@ -111,7 +112,7 @@ export default function ParentDashboard() {
                         <div className="truncate font-semibold"><RewardIcon icon={r.icon} size={16} className="mr-1.5 inline" />{r.title}</div>
                       </div>
                       <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-star-soft px-3 py-1 font-display font-semibold text-star">
-                        <Star size={14} fill="currentColor" aria-hidden /> {r.cost}
+                        <Coin size={14} /> {r.cost}
                       </span>
                     </div>
                     <RedemptionActions id={r.id} onDone={() => void reload()} />
