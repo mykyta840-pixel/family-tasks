@@ -14,7 +14,7 @@ const MAX_BIO = 200
 const MAX_NAME = 40
 
 export default function Profile() {
-  const { profile, session, role, family, refresh, signOut } = useAuth()
+  const { profile, session, role, family, refresh, signOut, isAnonymous } = useAuth()
   const { t } = useI18n()
   const { reload } = useFamilyData()
   const online = useOnline()
@@ -98,6 +98,13 @@ export default function Profile() {
       <div className="card flex flex-col items-center gap-4">
         <div className="relative">
           <Avatar name={profile?.display_name ?? '?'} url={profile?.avatar_url} size={112} />
+          <button
+            type="button" aria-label={profile?.avatar_url ? t('profile.changePhoto') : t('profile.uploadPhoto')}
+            disabled={busy !== null || !online} onClick={() => fileRef.current?.click()}
+            className="absolute bottom-0 right-0 grid h-10 w-10 place-items-center rounded-full border-2 border-paper bg-brand text-on-brand shadow-glow disabled:opacity-50"
+          >
+            <Camera size={18} aria-hidden />
+          </button>
           {busy === 'photo' && (
             <div className="absolute inset-0 grid place-items-center rounded-full bg-surface/70">
               <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand/20 border-t-brand" />
@@ -167,13 +174,21 @@ export default function Profile() {
           <span className="text-ink/60">{t('profile.family')}</span>
           <span className="font-semibold">{family?.name}</span>
         </div>
-        <div className="flex justify-between gap-4">
-          <span className="text-ink/60">{t('profile.email')}</span>
-          <span className="truncate font-semibold">{session?.user.email}</span>
-        </div>
+        {session?.user.email && (
+          <div className="flex justify-between gap-4">
+            <span className="text-ink/60">{t('profile.email')}</span>
+            <span className="truncate font-semibold">{session.user.email}</span>
+          </div>
+        )}
       </div>
 
-      <button onClick={signOut} className="btn-danger w-full">
+      <button
+        onClick={() => {
+          // Ребёнок без пароля: после выхода вернуться можно только по коду возврата от родителя
+          if (!isAnonymous || window.confirm(t('auth.anonSignOutConfirm'))) void signOut()
+        }}
+        className="btn-danger w-full"
+      >
         <LogOut size={18} aria-hidden /> {t('family.signOut')}
       </button>
     </div>

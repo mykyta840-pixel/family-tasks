@@ -14,6 +14,7 @@ import PushBridge from './components/PushBridge'
 import WelcomeTour from './components/WelcomeTour'
 import Auth from './pages/Auth'
 import Onboarding from './pages/Onboarding'
+import ResetPassword from './pages/ResetPassword'
 import FamilyHome from './pages/FamilyHome'
 import ParentDashboard from './pages/ParentDashboard'
 import ChildHome from './pages/ChildHome'
@@ -59,12 +60,14 @@ function SplashDataReady() {
 }
 
 function Gate() {
-  const { session, family, role, loading } = useAuth()
+  const { session, family, role, loading, recovery, isAnonymous, joining } = useAuth()
   useEffect(() => {
     if (loading) return
     splashReady('auth')
-    if (!session || !family) splashReady('data') // нет семьи — данных ждать нечего
-  }, [loading, session, family])
+    if (!session || !family || recovery) splashReady('data') // нет семьи или экран нового пароля — данных ждать нечего
+  }, [loading, session, family, recovery])
+  // Вход по коду идёт на экране входа: пока сессия переключается (анонимный вход -> семья), он не должен пропадать
+  if (joining) return <Auth />
   if (loading) {
     return (
       <div className="grid min-h-full place-items-center">
@@ -73,6 +76,9 @@ function Gate() {
     )
   }
   if (!session) return <Auth />
+  if (recovery) return <ResetPassword />
+  // Ребёнок без пароля, который ещё не вошёл в семью (закрыл приложение на середине): снова экран ввода кода
+  if (!family && isAnonymous) return <Auth />
   if (!family) return <Onboarding />
   const parent = role === 'parent'
   return (

@@ -17,7 +17,7 @@ self.addEventListener('push', (event) => {
   } catch {
     d = { body: event.data ? event.data.text() : '' }
   }
-  const title = d.title || 'Family Tasks'
+  const title = d.title || 'Family'
   // iOS требует показывать уведомление на каждый push, поэтому показываем всегда
   event.waitUntil(
     (async () => {
@@ -25,6 +25,7 @@ self.addEventListener('push', (event) => {
         body: d.body || '',
         icon: '/icon-192.png',
         badge: '/badge-96.png',
+        vibrate: [120, 60, 120],
         tag: d.tag || undefined,
         renotify: Boolean(d.tag),
         data: { url: d.url || '/', tag: d.tag || '' },

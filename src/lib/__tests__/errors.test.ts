@@ -3,7 +3,7 @@ import { errorDetail, errorKey, humanError } from '../errors'
 
 describe('humanError', () => {
   it('известные коды из базы', () => {
-    expect(humanError(new Error('not_enough_points'))).toBe('Не хватает баллов.')
+    expect(humanError(new Error('not_enough_points'))).toBe('Не хватает кристаллов.')
     expect(humanError({ message: 'invalid_code' })).toContain('Код не подошёл')
     expect(humanError({ message: 'already_in_family' })).toBe('Вы уже состоите в семье.')
   })
@@ -69,5 +69,19 @@ describe('этап 3: профиль ребёнка', () => {
     expect(errorKey({ message: 'bad_name' })).toBe('err.badName')
     expect(errorKey({ message: 'bad_avatar' })).toBe('err.badImage')
     expect(humanError(new Error('bad_name'))).toContain('от 1 до 40')
+  })
+})
+
+describe('этап B: восстановление пароля', () => {
+  it('ссылка из письма устарела', () => {
+    expect(errorKey({ message: 'Email link is invalid or has expired' })).toBe('err.linkExpired')
+    expect(errorKey({ message: 'otp_expired' })).toBe('err.linkExpired')
+    expect(errorKey({ message: 'Auth session missing!' })).toBe('err.linkExpired')
+  })
+  it('новый пароль совпал со старым', () => {
+    expect(errorKey({ message: 'New password should be different from the old password.' })).toBe('err.samePassword')
+  })
+  it('слишком частые письма', () => {
+    expect(errorKey({ message: 'For security purposes, you can only request this after 52 seconds.' })).toBe('err.rateLimit')
   })
 })

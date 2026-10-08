@@ -5,3 +5,10 @@ export async function callRpc(name: string, args: Record<string, unknown>): Prom
   const { error } = await supabase.rpc(name, args)
   if (error) throw error
 }
+
+// То же, но возвращает ответ функции (например, код возврата или результат проверки кода)
+export async function callRpcData<T>(name: string, args: Record<string, unknown>): Promise<T> {
+  const { data, error } = await supabase.rpc(name, args)
+  if (error) throw error
+  return data as T
+}

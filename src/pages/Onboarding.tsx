@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { KeyRound, Loader2, LogOut, Users } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { humanError } from '../lib/errors'
+import { assertOkReply, formatCodeInput } from '../lib/invite'
 import { useAuth } from '../auth/AuthProvider'
 import { useI18n } from '../i18n'
 import { markTourPending } from '../components/WelcomeTour'
@@ -19,14 +20,19 @@ export default function Onboarding() {
     if (busy) return
     setBusy(kind)
     setError(null)
-    const { error } =
-      kind === 'create'
-        ? await supabase.rpc('create_family', { p_name: familyName.trim() })
-        : await supabase.rpc('join_family', { p_code: code })
-    if (error) setError(humanError(error, t))
-    else {
+    try {
+      if (kind === 'create') {
+        const { error } = await supabase.rpc('create_family', { p_name: familyName.trim() })
+        if (error) throw error
+      } else {
+        const { data, error } = await supabase.rpc('join_with_code', { p_code: code })
+        if (error) throw error
+        assertOkReply(data)
+      }
       if (session) markTourPending(session.user.id) // новый участник семьи увидит приветственный тур
       await refresh()
+    } catch (err) {
+      setError(humanError(err, t))
     }
     setBusy(null)
   }
@@ -55,7 +61,7 @@ export default function Onboarding() {
           <KeyRound size={20} className="text-brand" aria-hidden />
           <h2 className="text-lg font-semibold">{t('onb.joinTitle')}</h2>
         </div>
-        <input className="input uppercase tracking-widest" placeholder={t('onb.codePh')} value={code} onChange={(e) => setCode(e.target.value)} required autoCapitalize="characters" aria-label={t('onb.joinTitle')} />
+        <input className="input uppercase tracking-widest" placeholder={t('onb.codePh')} value={code} onChange={(e) => setCode(formatCodeInput(e.target.value))} required autoCapitalize="characters" autoComplete="off" spellCheck={false} aria-label={t('onb.joinTitle')} />
         <button className="btn-soft" disabled={busy !== null}>
           {busy === 'join' && <Loader2 size={18} className="animate-spin" aria-hidden />}
           {busy === 'join' ? t('onb.joining') : t('onb.join')}

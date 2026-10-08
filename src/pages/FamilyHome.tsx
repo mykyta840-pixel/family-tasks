@@ -14,7 +14,7 @@ import type { Role } from '../lib/types'
 // Экран «Семья»: участники (с баллами и заданиями детей) и коды приглашения
 export default function FamilyHome() {
   const { t } = useI18n()
-  const { family, role, signOut, session } = useAuth()
+  const { family, role, signOut, session, isAnonymous } = useAuth()
   const myId = session?.user.id
   const { tasks, children: kids } = useFamilyData()
   const [members, setMembers] = useState<Member[]>([])
@@ -74,7 +74,7 @@ export default function FamilyHome() {
 
   async function share() {
     if (!invite || !family) return
-    const text = t('family.shareText', { name: family.name, code: invite.code })
+    const text = t('family.shareText', { name: family.name, code: invite.code, url: window.location.origin })
     try {
       if (navigator.share) await navigator.share({ text })
       else {
@@ -188,7 +188,13 @@ export default function FamilyHome() {
 
       <MemberProfileSheet member={members.find((m) => m.user_id === openId) ?? null} onClose={() => setOpenId(null)} onChanged={load} />
 
-      <button onClick={signOut} className="btn-danger w-full">
+      <button
+        onClick={() => {
+          // Ребёнок без пароля: после выхода вернуться можно только по коду возврата от родителя
+          if (!isAnonymous || window.confirm(t('auth.anonSignOutConfirm'))) void signOut()
+        }}
+        className="btn-danger w-full"
+      >
         <LogOut size={18} aria-hidden /> {t('family.signOut')}
       </button>
     </div>

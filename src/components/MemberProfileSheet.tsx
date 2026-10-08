@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Baby, Camera, Check, ShieldCheck, Trash2, UserRound } from 'lucide-react'
+import { Baby, Camera, Check, KeyRound, Loader2, Share2, ShieldCheck, Trash2, UserRound } from 'lucide-react'
 import Coin from './Coin'
 import { useAuth } from '../auth/AuthProvider'
 import { useFamilyData } from '../data/FamilyData'
 import { LANGS, LOCALES, useI18n, type Lang } from '../i18n'
-import { callRpc } from '../lib/actions'
+import { callRpc, callRpcData } from '../lib/actions'
 import { humanError } from '../lib/errors'
 import { removeChildAvatar, renameChild, uploadChildAvatar } from '../lib/avatar'
 import { useOnline } from '../hooks/useOnline'
@@ -56,6 +56,9 @@ function Body({ member, onClose, onChanged }: { member: MemberRow; onClose: () =
   const [busy, setBusy] = useState<'photo' | 'save' | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
+  const [retCode, setRetCode] = useState<string | null>(null) // выданный код возврата
+  const [retBusy, setRetBusy] = useState(false)
+  const [retCopied, setRetCopied] = useState(false)
 
   // Имя поменяли на другом телефоне, а здесь поле не трогали: подхватываем новое
   useEffect(() => {
@@ -112,6 +115,35 @@ function Body({ member, onClose, onChanged }: { member: MemberRow; onClose: () =
       await onChanged()
     } catch (e) {
       setError(humanError(e, t))
+    }
+  }
+
+  // Код возврата: ребёнок потерял вход (новый телефон, очистили браузер) — вводит код и возвращается в тот же профиль
+  async function makeReturnCode() {
+    if (retBusy) return
+    setRetBusy(true)
+    setRetCopied(false)
+    setError(null)
+    try {
+      setRetCode(await callRpcData<string>('create_return_code', { p_child: member.user_id }))
+    } catch (e) {
+      setError(humanError(e, t))
+    } finally {
+      setRetBusy(false)
+    }
+  }
+
+  async function shareReturnCode() {
+    if (!retCode) return
+    const text = t('member.returnShareText', { name, code: retCode, url: window.location.origin })
+    try {
+      if (navigator.share) await navigator.share({ text })
+      else {
+        await navigator.clipboard.writeText(text)
+        setRetCopied(true)
+      }
+    } catch {
+      /* окно «Поделиться» закрыли */
     }
   }
 
@@ -216,6 +248,25 @@ function Body({ member, onClose, onChanged }: { member: MemberRow; onClose: () =
                 </button>
               ))}
             </div>
+          </div>
+          <div className="flex flex-col gap-2 border-t border-ink/10 pt-3">
+            <span className="text-xs font-semibold uppercase tracking-wide text-ink/60">{t('member.returnTitle')}</span>
+            <p className="text-xs text-ink/60">{t('member.returnHint')}</p>
+            <button className="btn-soft" disabled={retBusy || !online} onClick={() => void makeReturnCode()}>
+              {retBusy ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <KeyRound size={18} aria-hidden />}
+              {t(retCode ? 'member.returnAgain' : 'member.returnMake')}
+            </button>
+            {retCode && (
+              <div className="flex flex-col items-center gap-2 rounded-card border border-brand/30 bg-brand-soft p-4 text-center shadow-glow">
+                <p className="text-sm text-ink/70">{t('member.returnFor', { name })}</p>
+                <p className="select-all break-all font-display text-2xl font-semibold tracking-widest">{retCode}</p>
+                <p className="text-xs text-ink/60">{t('member.returnValid')}</p>
+                <button className="btn-primary mt-1 w-full" onClick={() => void shareReturnCode()}>
+                  {retCopied ? <Check size={18} aria-hidden /> : <Share2 size={18} aria-hidden />}
+                  {retCopied ? t('family.copied') : t('family.share')}
+                </button>
+              </div>
+            )}
           </div>
           <p className="text-xs text-ink/50">{t('member.childHint')}</p>
           {error && (

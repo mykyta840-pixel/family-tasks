@@ -4,7 +4,7 @@ import { ruT, type TFn } from '../i18n/ruT'
 // Куда ведёт нажатие на уведомление
 export function noticeLink(n: Notice): string {
   if (n.type.startsWith('reward')) return '/rewards'
-  if (n.type === 'member_joined') return '/family'
+  if (n.type === 'member_joined' || n.type === 'member_returned') return '/family'
   return '/'
 }
 

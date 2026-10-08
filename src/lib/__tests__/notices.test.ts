@@ -31,6 +31,7 @@ describe('noticeLink', () => {
     expect(noticeLink(n('reward_requested'))).toBe('/rewards')
     expect(noticeLink(n('reward_approved'))).toBe('/rewards')
     expect(noticeLink(n('member_joined'))).toBe('/family')
+    expect(noticeLink(n('member_returned'))).toBe('/family')
     expect(noticeLink(n('task_submitted'))).toBe('/')
   })
 })

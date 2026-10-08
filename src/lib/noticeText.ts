@@ -54,5 +54,11 @@ export function localizeNotice(n: Notice, t: T, ctx: Ctx): { title: string; body
     return { title: t('notice.member_joined.t', { name: m.name }), body: t(m.role === 'child' ? 'notice.member_joined.child' : 'notice.member_joined.parent') }
   }
 
+  if (n.type === 'member_returned') {
+    const m = ctx.members.find((x) => x.id === str(d.user_id))
+    if (!m) return fallback
+    return { title: t('notice.member_returned.t', { name: m.name }), body: t('notice.member_returned.b') }
+  }
+
   return fallback
 }
