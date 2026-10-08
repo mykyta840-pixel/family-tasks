@@ -14,9 +14,9 @@ export default defineConfig({
       injectManifest: { globPatterns: ['**/*.{js,css,html}'] },
       includeAssets: ['favicon.svg', 'favicon.ico', 'favicon-32.png', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'badge-96.png'],
       manifest: {
-        name: 'Семейные задания',
-        short_name: 'Семья',
-        description: 'Задания, баллы и награды для всей семьи',
+        name: 'Family',
+        short_name: 'Family',
+        description: 'Задания для детей, кристаллы и награды',
         lang: 'ru',
         start_url: '/',
         display: 'standalone',

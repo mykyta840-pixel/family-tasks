@@ -9,7 +9,7 @@
     <meta name="theme-color" content="#0B0818" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-title" content="Семья" />
+    <meta name="apple-mobile-web-app-title" content="Family" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="apple-touch-startup-image" href="/splash/startup-1290x2796.png" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
@@ -102,10 +102,10 @@
         .sp-bar i { left: 27%; }
       }
     </style>
-    <title>Семейные задания</title>
+    <title>Family</title>
   </head>
   <body>
-    <div id="splash" role="status" aria-live="polite" aria-label="Family Tasks">
+    <div id="splash" role="status" aria-live="polite" aria-label="Family">
       <div class="sp-bg"></div>
       <div class="sp-center">
         <div class="sp-halo"></div>
@@ -113,18 +113,19 @@
         <div class="sp-icon-wrap"><img src="/icon-192.png" width="124" height="124" alt="" decoding="async" /></div>
       </div>
       <div class="sp-text">
-        <h1 class="sp-title">Family Tasks</h1>
-        <p class="sp-tag" id="sp-tag">Задания, баллы и награды — для всей семьи.</p>
+        <h1 class="sp-title">Family</h1>
+        <p class="sp-tag" id="sp-tag">Задания для детей, кристаллы и награды.</p>
       </div>
       <div class="sp-bar"><i></i></div>
     </div>
     <script>
+      window.__splashT0 = performance.now();
       (function () {
         var T = {
-          ru: 'Задания, баллы и награды — для всей семьи.',
-          uk: 'Завдання, бали та нагороди — для всієї родини.',
-          de: 'Aufgaben, Punkte und Belohnungen – für die ganze Familie.',
-          en: 'Tasks, points and rewards — for the whole family.'
+          ru: 'Задания для детей, кристаллы и награды.',
+          uk: 'Завдання для дітей, кристали та нагороди.',
+          de: 'Aufgaben für Kinder, Kristalle und Belohnungen.',
+          en: 'Tasks for kids, gems and rewards.'
         };
         var l = 'ru';
         try { l = localStorage.getItem('ft.lang') || (navigator.language || 'ru').slice(0, 2); } catch (e) {}

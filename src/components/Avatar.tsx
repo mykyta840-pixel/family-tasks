@@ -1,8 +1,17 @@
+import { useState } from 'react'
+
 const COLORS = ['#4F46E5', '#1FA971', '#E5484D', '#8B5CF6', '#F5A524', '#0EA5E9']
 
 export default function Avatar({ name, url, size = 48 }: { name: string; url?: string | null; size?: number }) {
-  if (url) {
-    return <img src={url} alt={name} className="shrink-0 rounded-full object-cover" style={{ width: size, height: size }} />
+  // Если файл фото не открылся (удалён, нет сети), вместо «битой картинки» показываем кружок с буквой
+  const [badUrl, setBadUrl] = useState<string | null>(null)
+  if (url && badUrl !== url) {
+    return (
+      <img
+        src={url} alt={name} onError={() => setBadUrl(url)}
+        className="shrink-0 rounded-full object-cover object-center" style={{ width: size, height: size, aspectRatio: '1 / 1' }}
+      />
+    )
   }
   const color = COLORS[[...name].reduce((sum, ch) => sum + ch.charCodeAt(0), 0) % COLORS.length]
   return (
