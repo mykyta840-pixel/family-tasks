@@ -11,7 +11,7 @@ import ReviewActions from '../components/ReviewActions'
 import RewardIcon from '../components/RewardIcon'
 import Avatar from '../components/Avatar'
 import RedemptionActions from '../components/RedemptionActions'
-import WeekChart from '../components/WeekChart'
+import EarnedCard from '../components/EarnedCard'
 
 function greetKey(): string {
   const h = new Date().getHours()
@@ -64,8 +64,6 @@ export default function ParentDashboard() {
             </div>
           )}
 
-          <WeekChart childId={null} title={t('dash.week')} />
-
           <div className="card flex flex-col gap-1">
             <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink/60">{t('dash.kids')}</div>
             {children.map((c) => (
@@ -84,6 +82,8 @@ export default function ParentDashboard() {
               </Link>
             </div>
           </div>
+
+          <EarnedCard />
 
           <Link to="/tasks/new" className="btn-primary w-full"><Plus size={20} aria-hidden /> {t('dash.create')}</Link>
 

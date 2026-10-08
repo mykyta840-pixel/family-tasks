@@ -4,9 +4,10 @@ import App from './App'
 import { ThemeProvider } from './theme/theme'
 import { I18nProvider } from './i18n'
 import './index.css'
-import { armSplashFailsafe } from './lib/splash'
+import { armSplashFailsafe, installResumeSplash } from './lib/splash'
 
 armSplashFailsafe()
+installResumeSplash()
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

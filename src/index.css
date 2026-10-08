@@ -64,9 +64,18 @@ body {
   font-size: 16px; line-height: 1.5;
   padding-top: env(safe-area-inset-top);
   padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior-y: none;
 }
+/* Ничего не вылезает за края экрана и не даёт горизонтальный скролл.
+   overflow-x: clip не создаёт отдельную прокрутку (в отличие от hidden), поэтому блокировка прокрутки под окнами работает как раньше. */
+#root { max-width: 100%; overflow-x: clip; }
+@supports not (overflow: clip) { body { overflow-x: hidden; } }
+img, video, canvas { max-width: 100%; }
+h1, h2, h3, p { overflow-wrap: anywhere; }
+.card, .glass { min-width: 0; max-width: 100%; }
 button, a { touch-action: manipulation; }
 button:focus-visible, a:focus-visible, [role='button']:focus-visible, input:focus-visible {
   outline: 2px solid rgb(var(--brand) / .8); outline-offset: 2px;
