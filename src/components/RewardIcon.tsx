@@ -1,6 +1,6 @@
 import {
   Banknote, Bike, BookOpen, Camera, CakeSlice, Candy, Clapperboard, Coffee, Gamepad2, Gift, Headphones, IceCreamCone,
-  Moon, Music, Palette, PartyPopper, Pizza, Plane, Popcorn, Shirt, Smartphone, Ticket, Trophy, Tv, Waves, Blocks, Volleyball,
+  Moon, Music, Palette, PartyPopper, Pizza, Plane, Popcorn, Shirt, Smartphone, Ticket, Trophy, Tv, Waves, Blocks, Dribbble,
   type LucideIcon,
 } from 'lucide-react'
 import type { CSSProperties } from 'react'
@@ -10,7 +10,7 @@ import { REWARD_GROUP_OF, REWARD_GROUP_RGB, resolveRewardIcon, type RewardIconKe
 export const REWARD_ICON_COMPONENT: Record<RewardIconKey, LucideIcon> = {
   gamepad: Gamepad2, movie: Clapperboard, popcorn: Popcorn, tv: Tv, music: Music, art: Palette, toy: Blocks,
   candy: Candy, pizza: Pizza, icecream: IceCreamCone, cake: CakeSlice, cafe: Coffee,
-  trip: Plane, park: PartyPopper, bike: Bike, ball: Volleyball, swim: Waves, ticket: Ticket, camera: Camera,
+  trip: Plane, park: PartyPopper, bike: Bike, ball: Dribbble, swim: Waves, ticket: Ticket, camera: Camera,
   phone: Smartphone, headphones: Headphones, book: BookOpen, clothes: Shirt, money: Banknote, gift: Gift,
   sleep: Moon, trophy: Trophy,
 }
